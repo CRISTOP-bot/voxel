@@ -85,6 +85,7 @@ jobs:
             -nostdlib -static -no-pie \
             -Wl,-T,"$ROOT/user/lib/app.ld" \
             -Wl,--build-id=none -Wl,-e,_start \
+            "$SDK/usr/lib/crt0.o" \
             "$@" \
             -L"$SDK/usr/lib" \
             -Wl,--start-group -lnsh -lc -Wl,--end-group -lgcc
@@ -98,6 +99,22 @@ jobs:
           make -C "$VOXEL_ROOT" NEWOS_ROOT="$NEWOS_ROOT" \
             NEWOS_GCC="$RUNNER_TEMP/voxel-newos-gcc" demo \
             2>&1 | tee "$RUNNER_TEMP/voxel-demo-build.log"
+
+      - name: Validate regular VOXEL ELF entry point
+        id: voxel-entry
+        run: |
+          set -euo pipefail
+          elf="$VOXEL_ROOT/build/voxel.elf"
+          nm="$NEWOS_ROOT/toolchain/out/bin/x86_64-elf-nm"
+          readelf="$NEWOS_ROOT/toolchain/out/bin/x86_64-elf-readelf"
+          entry=$("$readelf" -h "$elf" | awk '/Entry point address:/ {print $4}')
+          start=$("$nm" -n --defined-only "$elf" | awk '$3 == "_start" {print "0x" $1; exit}')
+          test -n "$entry" && test -n "$start"
+          if (( entry != start )); then
+            echo "ELF entry $entry does not match _start $start"
+            exit 1
+          fi
+          echo "VOXEL ELF entry $entry resolves to defined _start"
 
       - name: Build the NEWOS package
         id: voxel-package
@@ -177,6 +194,17 @@ jobs:
           make -C "$VOXEL_ROOT" NEWOS_ROOT="$NEWOS_ROOT" \
             NEWOS_GCC="$RUNNER_TEMP/voxel-newos-gcc" tinygl \
             2>&1 | tee "$RUNNER_TEMP/tinygl-build.log"
+          elf="$VOXEL_ROOT/build/voxel-tinygl.elf"
+          nm="$NEWOS_ROOT/toolchain/out/bin/x86_64-elf-nm"
+          readelf="$NEWOS_ROOT/toolchain/out/bin/x86_64-elf-readelf"
+          entry=$("$readelf" -h "$elf" | awk '/Entry point address:/ {print $4}')
+          start=$("$nm" -n --defined-only "$elf" | awk '$3 == "_start" {print "0x" $1; exit}')
+          test -n "$entry" && test -n "$start"
+          if (( entry != start )); then
+            echo "TinyGL ELF entry $entry does not match _start $start"
+            exit 1
+          fi
+          echo "TinyGL ELF entry $entry resolves to defined _start"
 
       - name: Show recent build/serial logs on failure
         if: failure()

@@ -43,7 +43,7 @@ Requires a NEWOS checkout with its `toolchain/newos-gcc` wrapper and `user/lib/a
 make NEWOS_ROOT=/path/to/NEWOS demo
 ```
 
-The resulting executable is `build/voxel.elf`. A previous target CI command returned success but its temporary link wrapper omitted NEWOS's `crt0.o`, so the linker reported a missing `_start`; that artifact is not considered a valid executable. The current target workflow uses NEWOS's official wrapper instead. See the evidence section below for the QEMU and framebuffer results.
+The resulting executable is `build/voxel.elf`. Target run [39194826040](https://github.com/CRISTOP-bot/voxel/actions/runs/39194826040) exposed a link-wrapper bug: it checked for `crt0.o` but did not pass it to the linker. The ELF had no defined `_start`; QEMU entered `draw_window` at `0x400000` and then faulted at `0x23` (`RIP=0x400985`) before the demo became ready. The updated workflow now links the CRT object and checks that the ELF entry resolves to `_start`; this fix still needs a fresh target run.
 
 ### Optional TinyGL demo
 
@@ -58,7 +58,7 @@ The target sets `NEWOS_FPU=1` for the floating-point TinyGL build and uses a cus
 
 ### Cross-build and QEMU validation
 
-The manual GitHub Actions workflow `target-validation.yml` checks out a pinned NEWOS revision, builds its real `x86_64-elf` toolchain, cross-compiles the regular demo, builds the `.new` package, and runs the optional TinyGL build as a separate step. For QEMU it places that actual package in NEWOS's disposable built-in sample slot and scripts `nsh.rc` to install it with `newpkg` and execute one frame. This changes only the Actions checkout, never the NEWOS repositories. The workflow checks the serial boot, framebuffer report, and VOXEL completion marker, then uploads the binaries, package and image. A green host-core workflow alone does not imply the target workflow passed.
+The manual GitHub Actions workflow `target-validation.yml` checks out a pinned NEWOS revision, builds its real `x86_64-elf` toolchain, cross-compiles the regular demo, builds the `.new` package, and runs the optional TinyGL build as a separate step. For QEMU it places that actual package in NEWOS's disposable built-in sample slot and scripts `nsh.rc` to install it with `newpkg` and execute one frame. This changes only the Actions checkout, never the NEWOS repositories. The workflow checks the ELF entry point, serial boot, framebuffer report, package installation and VOXEL completion marker, then uploads the binaries, package and image. A green host-core workflow alone does not imply the target workflow passed.
 
 ### NEWOS package
 
@@ -74,11 +74,11 @@ This stages the built `voxel.elf` in NEWOS's userland build directory and calls 
 newpkg install voxel-0.1.0-x86_64.new
 ```
 
-Package construction and QEMU installation are checked by the manual target workflow, not by the host-core job. A QEMU boot that prints the NEWOS kernel marker still does not prove that VOXEL's package installed or that its framebuffer call completed; the target test now checks those separately.
+Package construction and QEMU installation are checked by the manual target workflow, not by the host-core job. In run 39194826040 the package was installed, but VOXEL crashed before its ready/completion markers; neither the host tests nor the successful install prove that the framebuffer demo ran correctly.
 
 ## Evidence and validation status
 
-The pinned TinyGL ABI and NEWOS syscall layouts were inspected directly. The 16-byte allocator alignment covers the scalar and pointer types used in the pinned TinyGL build, and the code statically verifies the block-header alignment invariant. See [`docs/architecture.md`](docs/architecture.md) and [`docs/build-and-validation.md`](docs/build-and-validation.md) for exact CI results and the remaining runtime boundaries. A headless one-frame QEMU run confirms framebuffer calls and completion only; it is not a visual screenshot or an interactive mouse test.
+The pinned TinyGL ABI and NEWOS syscall layouts were inspected directly. The 16-byte allocator alignment covers the scalar and pointer types used in the pinned TinyGL build, and the code statically verifies the block-header alignment invariant. In the latest QEMU run the NEWOS framebuffer was available and the package installed, but the demo crashed before presentation; successful rendering is not yet verified. See [`docs/architecture.md`](docs/architecture.md) and [`docs/build-and-validation.md`](docs/build-and-validation.md) for exact CI results and remaining runtime boundaries. Even a passing headless one-frame QEMU run would not be a visual screenshot or an interactive mouse test.
 
 ## License
 
