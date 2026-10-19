@@ -75,8 +75,8 @@ static void test_composition_clip_alpha_order(void)
     assert(voxel_compositor_add(&compositor, &bottom, 0, 0, 0) == 0);
     assert(voxel_compositor_add(&compositor, &top, 1, 1, 0) == 0);
     voxel_compositor_compose(&compositor, clip);
-    assert(output[1 + 1 * 10] == 0x00891119u);
-    assert(output[2 + 2 * 10] == 0x00891119u);
+    assert(output[1 + 1 * 10] == 0x0089111au);
+    assert(output[2 + 2 * 10] == 0x0089111au);
     assert(output[0] == 0xdeadbeefu); /* outside requested clip untouched */
     assert(output[7 + 1 * 10] == 0xdeadbeefu); /* stride padding untouched */
 
