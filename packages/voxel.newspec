@@ -1,0 +1,13 @@
+# Build with the VOXEL Makefile, then package from a NEWOS checkout.
+name = "voxel"
+version = "0.1.0"
+arch = "x86_64"
+desc = "Layered software compositor and movable-window demonstration"
+license = "MIT"
+maintainer = "CRISTOP-bot"
+build = "make -C /path/to/voxel package"
+newos-min = "0.3.0"
+depends = ""
+
+files:
+  build/userland/voxel.elf /bin/voxel 0755
