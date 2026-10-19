@@ -20,7 +20,7 @@ This is an early graphics foundation—not a desktop environment or a complete g
 - **No GPU acceleration, window server, or font/text rendering.** VOXEL is a CPU software compositor, not a complete desktop or general-purpose OpenGL implementation; it also has no input-focus model or persistent window manager.
 - **Target behavior needs target-specific validation.** A host-side core-test pass does not demonstrate that the NEWOS executable builds correctly or runs in QEMU; cross-build, package installation, and QEMU runtime evidence must be checked separately.
 - The demo requires a NEWOS boot with a supported Limine framebuffer of at least 640×480 and a working PS/2 mouse for interaction. It is a standalone program, not integrated into NEWOS's shell/session startup.
-- The optional TinyGL target has not been claimed to compile or run on NEWOS merely because the upstream sources and API were inspected. It depends on a working NEWOS floating-point toolchain configuration.
+- The optional TinyGL target cross-compiled successfully and its ELF entry was verified in target run [39196790955](https://github.com/CRISTOP-bot/voxel/actions/runs/39196790955), but TinyGL itself has **not** been run in QEMU. Its build still reports compiler warnings and an RWX LOAD-segment warning.
 - The layer array and demo are single-threaded. The allocator is not thread-safe.
 
 ## Build and tests
@@ -43,7 +43,7 @@ Requires a NEWOS checkout with its `toolchain/newos-gcc` wrapper and `user/lib/a
 make NEWOS_ROOT=/path/to/NEWOS demo
 ```
 
-The resulting executable is `build/voxel.elf`. Target run [39194826040](https://github.com/CRISTOP-bot/voxel/actions/runs/39194826040) exposed a link-wrapper bug: it checked for `crt0.o` but did not pass it to the linker. The ELF had no defined `_start`; QEMU entered `draw_window` at `0x400000` and then faulted at `0x23` (`RIP=0x400985`) before the demo became ready. The updated workflow now links the CRT object and checks that the ELF entry resolves to `_start`; this fix still needs a fresh target run.
+The resulting executable is `build/voxel.elf`. Target run [39194826040](https://github.com/CRISTOP-bot/voxel/actions/runs/39194826040) exposed that the link wrapper checked for `crt0.o` but did not pass it to the linker; the ELF had no defined `_start` and faulted in QEMU. This was corrected in [commit `0be80a9`](https://github.com/CRISTOP-bot/voxel/commit/0be80a975154951eaa23b247b714a52390ddc332). In [run 39196790955](https://github.com/CRISTOP-bot/voxel/actions/runs/39196790955), the ELF entry matched a defined `_start`, the package installed, and the one-frame demo completed in QEMU. A non-fatal RWX LOAD-segment linker warning remains.
 
 ### Optional TinyGL demo
 
@@ -74,11 +74,11 @@ This stages the built `voxel.elf` in NEWOS's userland build directory and calls 
 newpkg install voxel-0.1.0-x86_64.new
 ```
 
-Package construction and QEMU installation are checked by the manual target workflow, not by the host-core job. In run 39194826040 the package was installed, but VOXEL crashed before its ready/completion markers; neither the host tests nor the successful install prove that the framebuffer demo ran correctly.
+Package construction and QEMU installation are checked by the manual target workflow, not by the host-core job. Run 39194826040 installed the package but exposed the invalid entry-point bug. After correction, run 39196790955 verified the package install and VOXEL completion marker; this is a headless one-frame runtime check, not a visual screenshot or interactive mouse test.
 
 ## Evidence and validation status
 
-The pinned TinyGL ABI and NEWOS syscall layouts were inspected directly. The 16-byte allocator alignment covers the scalar and pointer types used in the pinned TinyGL build, and the code statically verifies the block-header alignment invariant. In the latest QEMU run the NEWOS framebuffer was available and the package installed, but the demo crashed before presentation; successful rendering is not yet verified. See [`docs/architecture.md`](docs/architecture.md) and [`docs/build-and-validation.md`](docs/build-and-validation.md) for exact CI results and remaining runtime boundaries. Even a passing headless one-frame QEMU run would not be a visual screenshot or an interactive mouse test.
+The pinned TinyGL ABI and NEWOS syscall layouts were inspected directly. The 16-byte allocator alignment covers the scalar and pointer types used in the pinned TinyGL build, and the code statically verifies the block-header alignment invariant. In run 39196790955, the regular compositor demo completed its one-frame QEMU run after reporting the NEWOS framebuffer; that verifies target execution and presentation logic, but not visual appearance or interactive mouse dragging. TinyGL was cross-built and its entry checked, but it was not run. See [`docs/architecture.md`](docs/architecture.md) and [`docs/build-and-validation.md`](docs/build-and-validation.md) for exact results and remaining limits.
 
 ## License
 
