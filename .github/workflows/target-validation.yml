@@ -83,8 +83,37 @@ jobs:
           make -C "$NEWOS_ROOT" all V=0 2>&1 | tee "$RUNNER_TEMP/newos-build.log"
 
       - name: Cross-build VOXEL demo, TinyGL demo, and package
+        shell: bash
         run: |
-          make -C "$VOXEL_ROOT" NEWOS_ROOT="$NEWOS_ROOT" demo tinygl package
+          # The NEWOS build above already staged this SDK. Avoid re-running
+          # `make sdk` here: newos-gcc's wrapper also re-enters an unrelated
+          # TinyGL port build that currently hits a const-qualification warning.
+          cat > "$RUNNER_TEMP/voxel-newos-gcc" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          ROOT="${NEWOS_ROOT:?NEWOS_ROOT must name the checked-out NEWOS tree}"
+          TC_BIN="$ROOT/toolchain/out/bin"
+          FPFLAGS=(-mgeneral-regs-only)
+          if [ "${NEWOS_FPU:-0}" = "1" ]; then FPFLAGS=(); fi
+          CC="$TC_BIN/x86_64-elf-gcc"
+          SDK="$ROOT/build/newos-sdk"
+          test -x "$CC"
+          test -f "$SDK/usr/lib/crt0.o"
+          exec "$CC" \
+            -ffreestanding -fno-pic -fno-pie -fno-stack-protector \
+            -fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables \
+            "${FPFLAGS[@]}" -O2 \
+            -isystem "$SDK/usr/include" \
+            -nostdlib -static -no-pie \
+            -Wl,-T,"$ROOT/user/lib/app.ld" \
+            -Wl,--build-id=none -Wl,-e,_start \
+            "$@" \
+            -L"$SDK/usr/lib" \
+            -Wl,--start-group -lnsh -lc -Wl,--end-group -lgcc
+          EOF
+          chmod +x "$RUNNER_TEMP/voxel-newos-gcc"
+          make -C "$VOXEL_ROOT" NEWOS_ROOT="$NEWOS_ROOT" \
+            NEWOS_GCC="$RUNNER_TEMP/voxel-newos-gcc" demo tinygl package
 
       - name: Boot the VOXEL demo in NEWOS under QEMU
         shell: bash
