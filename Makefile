@@ -18,13 +18,13 @@ TINYGL_SRCS := \
   $(TINYGL_ROOT)/src/get.c $(TINYGL_ROOT)/src/image_util.c \
   $(TINYGL_ROOT)/src/init.c $(TINYGL_ROOT)/src/light.c \
   $(TINYGL_ROOT)/src/list.c $(TINYGL_ROOT)/src/matrix.c \
-  $(TINYGL_ROOT)/src/misc.c $(TINYGL_ROOT)/src/msghandling.c \
-  $(TINYGL_ROOT)/src/select.c $(TINYGL_ROOT)/src/specbuf.c \
-  $(TINYGL_ROOT)/src/texture.c $(TINYGL_ROOT)/src/vertex.c \
-  $(TINYGL_ROOT)/src/zbuffer.c $(TINYGL_ROOT)/src/zline.c \
-  $(TINYGL_ROOT)/src/zmath.c $(TINYGL_ROOT)/src/zpostprocess.c \
-  $(TINYGL_ROOT)/src/zraster.c $(TINYGL_ROOT)/src/ztext.c \
-  $(TINYGL_ROOT)/src/ztriangle.c
+  $(TINYGL_ROOT)/src/misc.c \
+  $(TINYGL_ROOT)/src/msghandling.c $(TINYGL_ROOT)/src/select.c \
+  $(TINYGL_ROOT)/src/specbuf.c $(TINYGL_ROOT)/src/texture.c \
+  $(TINYGL_ROOT)/src/vertex.c $(TINYGL_ROOT)/src/zbuffer.c \
+  $(TINYGL_ROOT)/src/zline.c $(TINYGL_ROOT)/src/zmath.c \
+  $(TINYGL_ROOT)/src/zpostprocess.c $(TINYGL_ROOT)/src/zraster.c \
+  $(TINYGL_ROOT)/src/ztext.c $(TINYGL_ROOT)/src/ztriangle.c
 
 .PHONY: all demo tinygl test clean check-newos check-tinygl package
 all: demo
@@ -49,7 +49,7 @@ $(TINYGL_DEMO): demo/tinygl_demo.c src/tinygl_allocator.c $(BACKEND_SRCS) $(TINY
 	@mkdir -p $(dir $@)
 	NEWOS_FPU=1 "$(NEWOS_GCC)" -std=gnu11 -O2 -ffreestanding -fno-pic -fno-pie \
 	  -fno-stack-protector -fno-builtin -fno-asynchronous-unwind-tables \
-	  -fno-unwind-tables $(WARNINGS) \
+	  -fno-unwind-tables -Wall -Wextra \
 	  -DTGL_FEATURE_RENDER_BITS=32 -DNO_DEBUG_OUTPUT \
 	  -Iinclude -I"$(TINYGL_ROOT)/include" -I"$(TINYGL_ROOT)/src" \
 	  -o "$@" $^ -lm

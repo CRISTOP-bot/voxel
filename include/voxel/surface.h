@@ -13,6 +13,7 @@ struct voxel_surface {
     uint32_t width;
     uint32_t height;
     size_t stride_pixels;
+    size_t capacity_pixels;
     enum voxel_pixel_format format;
     uint32_t *pixels;
 };

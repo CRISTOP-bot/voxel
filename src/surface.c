@@ -7,6 +7,8 @@ static int valid_surface(const struct voxel_surface *surface)
 {
     return surface && surface->pixels && surface->width && surface->height &&
            surface->stride_pixels >= surface->width &&
+           surface->stride_pixels <= SIZE_MAX / surface->height &&
+           surface->stride_pixels * surface->height <= surface->capacity_pixels &&
            (surface->format == VOXEL_XRGB8888 ||
             surface->format == VOXEL_ARGB8888);
 }
@@ -28,6 +30,7 @@ int voxel_surface_init(struct voxel_surface *surface, uint32_t width,
     surface->width = width;
     surface->height = height;
     surface->stride_pixels = stride_pixels;
+    surface->capacity_pixels = storage_pixels;
     surface->format = format;
     surface->pixels = storage;
     return 0;

@@ -7,6 +7,8 @@ static int valid_surface(const struct voxel_surface *s)
 {
     return s && s->pixels && s->width && s->height &&
            s->stride_pixels >= s->width &&
+           s->stride_pixels <= SIZE_MAX / s->height &&
+           s->stride_pixels * s->height <= s->capacity_pixels &&
            (s->format == VOXEL_XRGB8888 || s->format == VOXEL_ARGB8888);
 }
 
