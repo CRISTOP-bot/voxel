@@ -16,8 +16,9 @@ This is an early graphics foundation—not a desktop environment or a complete g
 
 ## Not implemented / limitations
 
-- **Keyboard events are unsupported.** Current NEWOS userspace has no keyboard-event syscall exposed to VOXEL. The sleep helper is not an input API.
-- There is no GPU acceleration, window server protocol, font/text renderer, input focus model, general-purpose OpenGL implementation, or persistent window manager.
+- **VOXEL has no keyboard-event input.** Current NEWOS userspace exposes no keyboard-event syscall to the program; the sleep helper is not an input API.
+- **No GPU acceleration, window server, or font/text rendering.** VOXEL is a CPU software compositor, not a complete desktop or general-purpose OpenGL implementation; it also has no input-focus model or persistent window manager.
+- **Target behavior needs target-specific validation.** A host-side core-test pass does not demonstrate that the NEWOS executable builds correctly or runs in QEMU; cross-build, package installation, and QEMU runtime evidence must be checked separately.
 - The demo requires a NEWOS boot with a supported Limine framebuffer of at least 640×480 and a working PS/2 mouse for interaction. It is a standalone program, not integrated into NEWOS's shell/session startup.
 - The optional TinyGL target has not been claimed to compile or run on NEWOS merely because the upstream sources and API were inspected. It depends on a working NEWOS floating-point toolchain configuration.
 - The layer array and demo are single-threaded. The allocator is not thread-safe.
@@ -42,7 +43,7 @@ Requires a NEWOS checkout with its `toolchain/newos-gcc` wrapper and `user/lib/a
 make NEWOS_ROOT=/path/to/NEWOS demo
 ```
 
-The resulting executable is `build/voxel.elf`. It has not been validated by this repository's CI against a NEWOS cross-toolchain. Use the target kernel and QEMU/hardware for runtime testing.
+The resulting executable is `build/voxel.elf`. A previous target CI command returned success but its temporary link wrapper omitted NEWOS's `crt0.o`, so the linker reported a missing `_start`; that artifact is not considered a valid executable. The current target workflow uses NEWOS's official wrapper instead. See the evidence section below for the QEMU and framebuffer results.
 
 ### Optional TinyGL demo
 
@@ -57,7 +58,7 @@ The target sets `NEWOS_FPU=1` for the floating-point TinyGL build and uses a cus
 
 ### Cross-build and QEMU validation
 
-The manual GitHub Actions workflow `target-validation.yml` checks out a pinned NEWOS revision, builds its real `x86_64-elf` toolchain, cross-compiles both VOXEL demos, builds the package, and boots the normal demo for one frame in QEMU. It adds VOXEL to NEWOS's initramfs only in the disposable Actions checkout; it never commits changes to NEWOS. The workflow uploads the target binaries, package and boot image as artifacts. A green host-core workflow alone does not imply this target workflow passed.
+The manual GitHub Actions workflow `target-validation.yml` checks out a pinned NEWOS revision, builds its real `x86_64-elf` toolchain, cross-compiles the regular demo, builds the `.new` package, and runs the optional TinyGL build as a separate step. For QEMU it places that actual package in NEWOS's disposable built-in sample slot and scripts `nsh.rc` to install it with `newpkg` and execute one frame. This changes only the Actions checkout, never the NEWOS repositories. The workflow checks the serial boot, framebuffer report, and VOXEL completion marker, then uploads the binaries, package and image. A green host-core workflow alone does not imply the target workflow passed.
 
 ### NEWOS package
 
@@ -73,11 +74,11 @@ This stages the built `voxel.elf` in NEWOS's userland build directory and calls 
 newpkg install voxel-0.1.0-x86_64.new
 ```
 
-Package construction/install and actual framebuffer runtime behavior are not validated by the host CI job.
+Package construction and QEMU installation are checked by the manual target workflow, not by the host-core job. A QEMU boot that prints the NEWOS kernel marker still does not prove that VOXEL's package installed or that its framebuffer call completed; the target test now checks those separately.
 
 ## Evidence and validation status
 
-The NEWOS syscall numbers, request layouts, framebuffer pixel transfer semantics, mouse state layout and TinyGL pixel format were inspected against the public upstream sources at the pinned/project revisions. This source inspection is not equivalent to compiling the target code. CI runs the portable C core tests only; it does not boot NEWOS, exercise the framebuffer syscalls, or validate a QEMU session. See [`docs/architecture.md`](docs/architecture.md) and [`docs/build-and-validation.md`](docs/build-and-validation.md) for the boundaries and commands.
+The pinned TinyGL ABI and NEWOS syscall layouts were inspected directly. The 16-byte allocator alignment covers the scalar and pointer types used in the pinned TinyGL build, and the code statically verifies the block-header alignment invariant. See [`docs/architecture.md`](docs/architecture.md) and [`docs/build-and-validation.md`](docs/build-and-validation.md) for exact CI results and the remaining runtime boundaries. A headless one-frame QEMU run confirms framebuffer calls and completion only; it is not a visual screenshot or an interactive mouse test.
 
 ## License
 

@@ -35,6 +35,14 @@ No keyboard event API is implemented because the current inspected NEWOS userspa
 - `demo/voxel_demo.c` draws a fixed-size 640×480 software desktop and windows, centers it in the detected framebuffer, polls the PS/2 pointer, raises the cursor over windows, and permits title-bar dragging and close-square clicks.
 - `demo/tinygl_demo.c` optionally initializes TinyGL with a bounded arena allocator, renders a triangle into a 32-bit software Z-buffer, and presents the pixel words through the same framebuffer backend. It is a rendering smoke demo, not a reusable GL window system.
 
+The pinned TinyGL ABI exposes `GLint`/`GLuint`, `GLfloat`, `GLdouble`, and ordinary pointers for the structures and buffers used here; `ZB_open()` allocates these through `gl_malloc` and releases them through `gl_free`. Its default `TGL_FEATURE_ALIGNAS` is 0, and the target build does not compile the separate example files that declare aligned vector types. `src/tinygl_allocator.c` uses the x86_64 ABI's 16-byte general-allocation alignment instead of relying on `max_align_t`, which the NEWOS SDK headers do not declare. Both the arena and block-header union are aligned to 16 bytes, the header size is statically required to be a multiple of 16, and allocation sizes are rounded to that boundary. This meets TinyGL's configured 16-byte alignment option too, but should be revisited if the target ABI or allocator contract changes.
+
+## Current limitations
+
+- VOXEL cannot receive keyboard events; the current NEWOS userspace ABI exposes no keyboard-event syscall to it. Only mouse-state polling is implemented.
+- Rendering is CPU/software-only. There is no GPU acceleration, window-server protocol, or font/text rendering, and the demo is not a complete or integrated desktop environment.
+- A successful host-core test run proves only the portable surface/compositor logic. It does not prove that the target executable links correctly or runs in NEWOS/QEMU; those need specific cross-build, package, and runtime checks.
+
 ## ABI and upstream basis
 
 VOXEL targets the current NEWOS x86_64 syscall ABI using `int $0x80`: `SYS_FBINFO=453`, `SYS_FBWRITE=454`, `SYS_MOUSE_GET=455`, and `SYS_SLEEP=35`. The framebuffer info record is 40 bytes, FBWRITE request is 48 bytes, mouse snapshot is 32 bytes, and timespec is 16 bytes; compile-time assertions in `abi.h` guard these sizes.
