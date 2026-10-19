@@ -4,6 +4,29 @@
 #include <stdint.h>
 #include <stdio.h>
 
+/* Mock the target-only framebuffer transport; host tests exercise the
+ * compositor's presentation bounds without issuing NEWOS syscalls. */
+static unsigned int present_calls;
+static uint32_t present_x, present_y, present_width, present_height;
+static const uint32_t *present_pixels;
+static size_t present_stride;
+
+int voxel_framebuffer_blit(struct voxel_framebuffer *fb,
+                           uint32_t x, uint32_t y,
+                           uint32_t width, uint32_t height,
+                           const uint32_t *pixels, size_t stride_pixels)
+{
+    (void)fb;
+    ++present_calls;
+    present_x = x;
+    present_y = y;
+    present_width = width;
+    present_height = height;
+    present_pixels = pixels;
+    present_stride = stride_pixels;
+    return 0;
+}
+
 static void test_surface_bounds_and_stride(void)
 {
     uint32_t storage[12];
@@ -78,6 +101,25 @@ static void test_composition_clip_alpha_order(void)
     assert(compositor.layers[1].surface == &top);
 }
 
+static void test_present_bounds(void)
+{
+    uint32_t output[6] = {0};
+    struct voxel_compositor compositor;
+    struct voxel_framebuffer fb = {{0}};
+    assert(voxel_compositor_init(&compositor, 3, 2, 3, output, 6) == 0);
+    fb.info.width = 10;
+    fb.info.height = 8;
+    present_calls = 0;
+    assert(voxel_compositor_present(&compositor, &fb, 2, 3) == 0);
+    assert(present_calls == 1);
+    assert(present_x == 2 && present_y == 3);
+    assert(present_width == 3 && present_height == 2);
+    assert(present_pixels == output && present_stride == 3);
+    fb.info.width = 4;
+    assert(voxel_compositor_present(&compositor, &fb, 2, 3) == -1);
+    assert(present_calls == 1); /* rejected before reaching the backend */
+}
+
 static void test_invalid_compositor_arguments(void)
 {
     uint32_t output[4];
@@ -90,6 +132,7 @@ int main(void)
 {
     test_surface_bounds_and_stride();
     test_composition_clip_alpha_order();
+    test_present_bounds();
     test_invalid_compositor_arguments();
     puts("VOXEL core tests: PASS");
     return 0;

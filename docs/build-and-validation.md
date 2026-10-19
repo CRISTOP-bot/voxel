@@ -16,7 +16,7 @@ make NEWOS_ROOT=/path/to/NEWOS TINYGL_ROOT=vendor/tinygl tinygl
 make NEWOS_ROOT=/path/to/NEWOS package
 ```
 
-`make test` uses the host `CC` and compiles only `surface.c`, `compositor.c`, and `tests/test_core.c`. It does not compile inline `int $0x80` backend code or either demo. `demo` and `tinygl` use NEWOS's `toolchain/newos-gcc`; a host compiler is not a substitute for that target ABI. The TinyGL target opts into floating point with `NEWOS_FPU=1`, avoiding the wrapper's default general-register-only restriction.
+`make test` uses the host `CC` and compiles `surface.c`, `compositor.c`, and `tests/test_core.c`. A small mock `voxel_framebuffer_blit()` in the test file checks the compositor's presentation bounds and arguments without issuing a syscall. It does not compile inline `int $0x80` backend code or either demo. `demo` and `tinygl` use NEWOS's `toolchain/newos-gcc`; a host compiler is not a substitute for that target ABI. The TinyGL target opts into floating point with `NEWOS_FPU=1`, avoiding the wrapper's default general-register-only restriction.
 
 ## CI scope
 
