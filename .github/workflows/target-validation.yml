@@ -85,9 +85,9 @@ jobs:
       - name: Cross-build VOXEL demo, TinyGL demo, and package
         shell: bash
         run: |
-          # The NEWOS build above already staged this SDK. Avoid re-running
-          # `make sdk` here: newos-gcc's wrapper also re-enters an unrelated
-          # TinyGL port build that currently hits a const-qualification warning.
+          # The complete NEWOS build already staged the SDK and toolchain.
+          # Use the same real cross compiler and linker flags directly, without
+          # repeating SDK staging for each VOXEL executable.
           cat > "$RUNNER_TEMP/voxel-newos-gcc" <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
@@ -112,8 +112,10 @@ jobs:
             -Wl,--start-group -lnsh -lc -Wl,--end-group -lgcc
           EOF
           chmod +x "$RUNNER_TEMP/voxel-newos-gcc"
+          set -o pipefail
           make -C "$VOXEL_ROOT" NEWOS_ROOT="$NEWOS_ROOT" \
-            NEWOS_GCC="$RUNNER_TEMP/voxel-newos-gcc" demo tinygl package
+            NEWOS_GCC="$RUNNER_TEMP/voxel-newos-gcc" demo tinygl package \
+            2>&1 | tee "$RUNNER_TEMP/voxel-build.log"
 
       - name: Boot the VOXEL demo in NEWOS under QEMU
         shell: bash
@@ -140,7 +142,13 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          for file in "$RUNNER_TEMP/newos-build.log" "$RUNNER_TEMP/voxel-qemu.log"; do
+          if [ -f "$RUNNER_TEMP/newos-build.log" ]; then
+            echo "Recent NEWOS build output (informational; this step may have passed)"
+            tail -n 12 "$RUNNER_TEMP/newos-build.log" | while IFS= read -r line; do
+              echo "::notice::$line"
+            done
+          fi
+          for file in "$RUNNER_TEMP/voxel-build.log" "$RUNNER_TEMP/voxel-qemu.log"; do
             if [ -f "$file" ]; then
               echo "Recent lines from $file"
               tail -n 40 "$file" | while IFS= read -r line; do

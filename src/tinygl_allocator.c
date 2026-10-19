@@ -5,23 +5,29 @@
 #include <stdint.h>
 
 #define ARENA_BYTES (16u * 1024u * 1024u)
+#define VOXEL_TGL_ALIGNMENT 16u
 
 typedef union voxel_tgl_block voxel_tgl_block;
-union voxel_tgl_block {
+union __attribute__((aligned(VOXEL_TGL_ALIGNMENT))) voxel_tgl_block {
     struct {
         size_t size;
         voxel_tgl_block *next;
         unsigned int is_free;
     } m;
-    max_align_t alignment;
+    uint64_t alignment[2];
 };
 
-static unsigned char arena[ARENA_BYTES] __attribute__((aligned(16)));
+/* NEWOS's current C SDK does not expose max_align_t. TinyGL on NEWOS is
+ * x86_64, whose ABI requires at most 16-byte alignment for general objects. */
+static unsigned char arena[ARENA_BYTES]
+    __attribute__((aligned(VOXEL_TGL_ALIGNMENT)));
+_Static_assert(sizeof(voxel_tgl_block) % VOXEL_TGL_ALIGNMENT == 0u,
+               "allocator headers must preserve payload alignment");
 static voxel_tgl_block *first_block;
 
 static size_t aligned_size(size_t size)
 {
-    const size_t alignment = sizeof(max_align_t);
+    const size_t alignment = VOXEL_TGL_ALIGNMENT;
     if (size > SIZE_MAX - (alignment - 1u))
         return 0;
     return (size + alignment - 1u) / alignment * alignment;
@@ -50,7 +56,7 @@ void *gl_malloc(GLint requested)
     for (block = first_block; block; block = block->m.next) {
         if (!block->m.is_free || block->m.size < need)
             continue;
-        if (block->m.size >= need + sizeof(*block) + sizeof(max_align_t)) {
+        if (block->m.size >= need + sizeof(*block) + VOXEL_TGL_ALIGNMENT) {
             voxel_tgl_block *remainder = (voxel_tgl_block *)(void *)
                 ((unsigned char *)(void *)(block + 1) + need);
             remainder->m.size = block->m.size - need - sizeof(*block);
