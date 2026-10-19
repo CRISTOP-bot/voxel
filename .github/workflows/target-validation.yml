@@ -47,47 +47,25 @@ jobs:
       - name: Bootstrap NEWOS pinned modules
         run: make -C "$NEWOS_ROOT" bootstrap
 
-      - name: Add a temporary VOXEL entry for the QEMU initramfs smoke test
-        shell: bash
-        run: |
-          # This overlay exists only on the Actions runner; no NEWOS source is pushed.
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-          root = Path(os.environ["NEWOS_ROOT"])
-          makefile = root / "Makefile"
-          text = makefile.read_text()
-          old = "wc head grep find sort img vid ltest about newfetch desktop newpkg kilo"
-          if old not in text:
-              raise SystemExit("Could not locate NEWOS's explicit userland program list")
-          makefile.write_text(text.replace(old, old + " voxel", 1))
-          PY
-          mkdir -p "$NEWOS_ROOT/user/programs/voxel"
-          cat > "$NEWOS_ROOT/user/programs/voxel/voxel_main.c" <<EOF
-          #include "$VOXEL_ROOT/src/surface.c"
-          #define valid_surface voxel_compositor_surface_valid
-          #include "$VOXEL_ROOT/src/compositor.c"
-          #undef valid_surface
-          #include "$VOXEL_ROOT/src/newos_backend.c"
-          #define voxel_syscall1 voxel_input_syscall1
-          #include "$VOXEL_ROOT/src/input.c"
-          #undef voxel_syscall1
-          #include "$VOXEL_ROOT/demo/voxel_demo.c"
-          EOF
-          printf 'voxel --frames 1\n' > "$NEWOS_ROOT/user/rootfs/nsh.rc"
-
-      - name: Build NEWOS with its x86_64-elf toolchain
+      - name: Build the real NEWOS x86_64-elf toolchain
+        id: newos-toolchain
         run: |
           set -o pipefail
-          export CPATH="$VOXEL_ROOT/include${CPATH:+:$CPATH}"
-          make -C "$NEWOS_ROOT" all V=0 2>&1 | tee "$RUNNER_TEMP/newos-build.log"
+          make -C "$NEWOS_ROOT" toolchain V=0 2>&1 | tee "$RUNNER_TEMP/newos-toolchain.log"
 
-      - name: Cross-build VOXEL demo, TinyGL demo, and package
+      - name: Build the NEWOS C SDK
+        id: newos-sdk
+        run: |
+          set -o pipefail
+          export PATH="$NEWOS_ROOT/toolchain/out/bin:$PATH"
+          make -C "$NEWOS_ROOT" CROSS_PREFIX=x86_64-elf- sdk V=0 \
+            2>&1 | tee "$RUNNER_TEMP/newos-sdk.log"
+
+      - name: Prepare a direct wrapper for the staged NEWOS SDK
         shell: bash
         run: |
-          # The complete NEWOS build already staged the SDK and toolchain.
-          # Use the same real cross compiler and linker flags directly, without
-          # repeating SDK staging for each VOXEL executable.
+          # Use NEWOS's actual cross compiler, CRT, linker script and SDK libraries.
+          # This avoids rerunning SDK staging for each VOXEL executable.
           cat > "$RUNNER_TEMP/voxel-newos-gcc" <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
@@ -112,12 +90,57 @@ jobs:
             -Wl,--start-group -lnsh -lc -Wl,--end-group -lgcc
           EOF
           chmod +x "$RUNNER_TEMP/voxel-newos-gcc"
+
+      - name: Cross-build the regular VOXEL demo
+        id: voxel-demo
+        run: |
           set -o pipefail
           make -C "$VOXEL_ROOT" NEWOS_ROOT="$NEWOS_ROOT" \
-            NEWOS_GCC="$RUNNER_TEMP/voxel-newos-gcc" demo tinygl package \
-            2>&1 | tee "$RUNNER_TEMP/voxel-build.log"
+            NEWOS_GCC="$RUNNER_TEMP/voxel-newos-gcc" demo \
+            2>&1 | tee "$RUNNER_TEMP/voxel-demo-build.log"
 
-      - name: Boot the VOXEL demo in NEWOS under QEMU
+      - name: Build the NEWOS package
+        id: voxel-package
+        run: |
+          set -o pipefail
+          make -C "$VOXEL_ROOT" NEWOS_ROOT="$NEWOS_ROOT" \
+            NEWOS_GCC="$RUNNER_TEMP/voxel-newos-gcc" package \
+            2>&1 | tee "$RUNNER_TEMP/voxel-package-build.log"
+
+      - name: Inject the real VOXEL package into the disposable NEWOS image
+        id: inject-package
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$NEWOS_ROOT/toolchain/out/bin:$PATH"
+          # Build NEWOS's regular sample target first so its binary-object rule
+          # will consume the replacement package in the subsequent image build.
+          make -C "$NEWOS_ROOT" CROSS_PREFIX=x86_64-elf- build/sample.new V=0 \
+            2>&1 | tee "$RUNNER_TEMP/newos-sample-package.log"
+          cp "$VOXEL_ROOT/build/packages/voxel-0.1.0-x86_64.new" \
+            "$NEWOS_ROOT/build/sample.new"
+          test -s "$NEWOS_ROOT/build/sample.new"
+          # The archive's internal metadata identifies it as voxel; NEWOS's
+          # initramfs stages this opaque blob at the documented sample path.
+          cat > "$NEWOS_ROOT/user/rootfs/nsh.rc" <<'EOF'
+          newpkg install /tmp/gnu-coreutils.new
+          newpkg verify /tmp/hello-new-1.0.0-x86_64.new
+          newpkg install /tmp/hello-new-1.0.0-x86_64.new
+          voxel --frames 1
+          EOF
+          test -s "$NEWOS_ROOT/user/rootfs/nsh.rc"
+
+      - name: Build NEWOS system image with the injected package
+        id: newos-image
+        shell: bash
+        run: |
+          set -o pipefail
+          export PATH="$NEWOS_ROOT/toolchain/out/bin:$PATH"
+          make -C "$NEWOS_ROOT" CROSS_PREFIX=x86_64-elf- system-image-build V=0 \
+            2>&1 | tee "$RUNNER_TEMP/newos-image.log"
+
+      - name: Boot NEWOS and run the packaged VOXEL demo in QEMU
+        id: qemu-demo
         shell: bash
         run: |
           set +e
@@ -131,24 +154,43 @@ jobs:
             echo "QEMU exited unexpectedly: $qemu_status"
             exit 1
           fi
-          grep -F 'VOXEL: demo completed successfully.' "$RUNNER_TEMP/voxel-qemu.log"
-          if grep -E 'no supported NEWOS framebuffer|framebuffer presentation failed' \
-              "$RUNNER_TEMP/voxel-qemu.log"; then
-            echo "VOXEL reported a framebuffer error"
+          log="$RUNNER_TEMP/voxel-qemu.log"
+          grep -F 'limine: framebuffer 1280x800 pitch 5120 bpp 32' "$log"
+          grep -F 'fb: 1280x800 pitch 5120 bpp 32' "$log"
+          grep -F 'NEWOS 0.3.0-gui (x86_64) booted' "$log"
+          grep -F '=== 7 tests, 0 failures ===' "$log"
+          grep -F '=== 9 tests, 0 failures ===' "$log"
+          grep -F 'verify: /tmp/hello-new-1.0.0-x86_64.new: OK (1 files)' "$log"
+          grep -F 'install: voxel 0.1.0: OK (1 files)' "$log"
+          grep -F 'VOXEL: software compositor ready;' "$log"
+          grep -F 'VOXEL: demo completed successfully.' "$log"
+          if grep -E 'VOXEL: (no supported NEWOS framebuffer|framebuffer presentation failed|unable to initialize)' "$log"; then
+            echo "VOXEL reported a runtime/framebuffer error"
             exit 1
           fi
+
+      - name: Cross-build the optional TinyGL demo
+        id: tinygl-build
+        if: always() && steps.newos-toolchain.outcome == 'success' && steps.newos-sdk.outcome == 'success'
+        run: |
+          set -o pipefail
+          make -C "$VOXEL_ROOT" NEWOS_ROOT="$NEWOS_ROOT" \
+            NEWOS_GCC="$RUNNER_TEMP/voxel-newos-gcc" tinygl \
+            2>&1 | tee "$RUNNER_TEMP/tinygl-build.log"
 
       - name: Show recent build/serial logs on failure
         if: failure()
         shell: bash
         run: |
-          if [ -f "$RUNNER_TEMP/newos-build.log" ]; then
-            echo "Recent NEWOS build output (informational; this step may have passed)"
-            tail -n 12 "$RUNNER_TEMP/newos-build.log" | while IFS= read -r line; do
-              echo "::notice::$line"
-            done
-          fi
-          for file in "$RUNNER_TEMP/voxel-build.log" "$RUNNER_TEMP/voxel-qemu.log"; do
+          for file in \
+              "$RUNNER_TEMP/newos-toolchain.log" \
+              "$RUNNER_TEMP/newos-sdk.log" \
+              "$RUNNER_TEMP/voxel-demo-build.log" \
+              "$RUNNER_TEMP/voxel-package-build.log" \
+              "$RUNNER_TEMP/newos-sample-package.log" \
+              "$RUNNER_TEMP/newos-image.log" \
+              "$RUNNER_TEMP/tinygl-build.log" \
+              "$RUNNER_TEMP/voxel-qemu.log"; do
             if [ -f "$file" ]; then
               echo "Recent lines from $file"
               tail -n 40 "$file" | while IFS= read -r line; do
@@ -157,7 +199,7 @@ jobs:
             fi
           done
 
-      - name: Upload target binaries, package, and boot image
+      - name: Upload target binaries, package, boot image, and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -167,5 +209,13 @@ jobs:
             voxel/build/voxel.elf
             voxel/build/voxel-tinygl.elf
             NEWOS/build/packages/voxel-0.1.0-x86_64.new
+            NEWOS/build/sample.new
             NEWOS/build/images/newos-x86_64-limine.iso
+            ${{ runner.temp }}/newos-toolchain.log
+            ${{ runner.temp }}/newos-sdk.log
+            ${{ runner.temp }}/voxel-demo-build.log
+            ${{ runner.temp }}/voxel-package-build.log
+            ${{ runner.temp }}/newos-sample-package.log
+            ${{ runner.temp }}/newos-image.log
+            ${{ runner.temp }}/tinygl-build.log
             ${{ runner.temp }}/voxel-qemu.log
