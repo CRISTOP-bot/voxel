@@ -27,6 +27,7 @@ static const char no_fb[] = "VOXEL: no supported NEWOS framebuffer; boot with Li
 static const char no_space[] = "VOXEL: unable to initialize compositor surfaces.\n";
 static const char present_error[] = "VOXEL: framebuffer presentation failed.\n";
 static const char ready[] = "VOXEL: software compositor ready; drag title bars, click the red square to close.\n";
+static const char completed[] = "VOXEL: demo completed successfully.\n";
 
 static long os_write(const char *text, size_t length)
 {
@@ -257,5 +258,7 @@ int main(int argc, char **argv)
         if (voxel_sleep_ms(16u) < 0)
             return 1;
     }
+    if (frame_limit != 0u)
+        (void)os_write(completed, sizeof(completed) - 1u);
     return 0;
 }

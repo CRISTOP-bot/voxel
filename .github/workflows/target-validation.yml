@@ -1,0 +1,134 @@
+name: NEWOS target validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      newos_ref:
+        description: NEWOS commit to validate against
+        required: false
+        type: string
+        default: 7cb7d01a2798224c9e850868b35e60b4943425ba
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-qemu:
+    name: Cross-build VOXEL and run its demo in QEMU
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      NEWOS_ROOT: ${{ github.workspace }}/NEWOS
+      VOXEL_ROOT: ${{ github.workspace }}/voxel
+    steps:
+      - name: Check out VOXEL and pinned TinyGL
+        uses: actions/checkout@v4
+        with:
+          path: voxel
+          submodules: recursive
+
+      - name: Check out NEWOS at a fixed revision
+        uses: actions/checkout@v4
+        with:
+          repository: CRISTOP-bot/NEWOS
+          ref: ${{ inputs.newos_ref }}
+          path: NEWOS
+          submodules: recursive
+
+      - name: Install NEWOS build and QEMU dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential gcc g++ make nasm binutils python3 curl unzip \
+            libgmp-dev libmpfr-dev libmpc-dev flex bison texinfo \
+            qemu-system-x86 grub-common grub-pc-bin grub-efi-amd64-bin \
+            xorriso mtools ovmf
+
+      - name: Bootstrap NEWOS pinned modules
+        run: make -C "$NEWOS_ROOT" bootstrap
+
+      - name: Add a temporary VOXEL entry for the QEMU initramfs smoke test
+        shell: bash
+        run: |
+          # This overlay exists only on the Actions runner; no NEWOS source is pushed.
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          root = Path(os.environ["NEWOS_ROOT"])
+          makefile = root / "Makefile"
+          text = makefile.read_text()
+          old = "wc head grep find sort img vid ltest about newfetch desktop newpkg kilo"
+          if old not in text:
+              raise SystemExit("Could not locate NEWOS's explicit userland program list")
+          makefile.write_text(text.replace(old, old + " voxel", 1))
+          PY
+          mkdir -p "$NEWOS_ROOT/user/programs/voxel"
+          cat > "$NEWOS_ROOT/user/programs/voxel/voxel_main.c" <<EOF
+          #include "$VOXEL_ROOT/src/surface.c"
+          #define valid_surface voxel_compositor_surface_valid
+          #include "$VOXEL_ROOT/src/compositor.c"
+          #undef valid_surface
+          #include "$VOXEL_ROOT/src/newos_backend.c"
+          #define voxel_syscall1 voxel_input_syscall1
+          #include "$VOXEL_ROOT/src/input.c"
+          #undef voxel_syscall1
+          #include "$VOXEL_ROOT/demo/voxel_demo.c"
+          EOF
+          printf 'voxel --frames 1\n' > "$NEWOS_ROOT/user/rootfs/nsh.rc"
+
+      - name: Build NEWOS with its x86_64-elf toolchain
+        run: |
+          set -o pipefail
+          export CPATH="$VOXEL_ROOT/include${CPATH:+:$CPATH}"
+          make -C "$NEWOS_ROOT" all V=0 2>&1 | tee "$RUNNER_TEMP/newos-build.log"
+
+      - name: Cross-build VOXEL demo, TinyGL demo, and package
+        run: |
+          make -C "$VOXEL_ROOT" NEWOS_ROOT="$NEWOS_ROOT" demo tinygl package
+
+      - name: Boot the VOXEL demo in NEWOS under QEMU
+        shell: bash
+        run: |
+          set +e
+          timeout 60 qemu-system-x86_64 \
+            -cdrom "$NEWOS_ROOT/build/images/newos-x86_64-limine.iso" \
+            -boot order=d -serial "file:$RUNNER_TEMP/voxel-qemu.log" \
+            -no-reboot -m 512M -display none
+          qemu_status=$?
+          set -e
+          if [ "$qemu_status" -ne 0 ] && [ "$qemu_status" -ne 124 ]; then
+            echo "QEMU exited unexpectedly: $qemu_status"
+            exit 1
+          fi
+          grep -F 'VOXEL: demo completed successfully.' "$RUNNER_TEMP/voxel-qemu.log"
+          if grep -E 'no supported NEWOS framebuffer|framebuffer presentation failed' \
+              "$RUNNER_TEMP/voxel-qemu.log"; then
+            echo "VOXEL reported a framebuffer error"
+            exit 1
+          fi
+
+      - name: Show recent build/serial logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          for file in "$RUNNER_TEMP/newos-build.log" "$RUNNER_TEMP/voxel-qemu.log"; do
+            if [ -f "$file" ]; then
+              echo "Recent lines from $file"
+              tail -n 40 "$file" | while IFS= read -r line; do
+                echo "::error::$line"
+              done
+            fi
+          done
+
+      - name: Upload target binaries, package, and boot image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxel-newos-target
+          if-no-files-found: warn
+          path: |
+            voxel/build/voxel.elf
+            voxel/build/voxel-tinygl.elf
+            NEWOS/build/packages/voxel-0.1.0-x86_64.new
+            NEWOS/build/images/newos-x86_64-limine.iso
+            ${{ runner.temp }}/voxel-qemu.log

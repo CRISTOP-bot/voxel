@@ -55,6 +55,10 @@ make NEWOS_ROOT=/path/to/NEWOS TINYGL_ROOT=vendor/tinygl tinygl
 
 The target sets `NEWOS_FPU=1` for the floating-point TinyGL build and uses a custom 32-bit render configuration. The result is `build/voxel-tinygl.elf`.
 
+### Cross-build and QEMU validation
+
+The manual GitHub Actions workflow `target-validation.yml` checks out a pinned NEWOS revision, builds its real `x86_64-elf` toolchain, cross-compiles both VOXEL demos, builds the package, and boots the normal demo for one frame in QEMU. It adds VOXEL to NEWOS's initramfs only in the disposable Actions checkout; it never commits changes to NEWOS. The workflow uploads the target binaries, package and boot image as artifacts. A green host-core workflow alone does not imply this target workflow passed.
+
 ### NEWOS package
 
 With `NEWOS_ROOT` set to a complete NEWOS checkout:
