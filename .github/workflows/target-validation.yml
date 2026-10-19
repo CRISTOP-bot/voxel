@@ -117,7 +117,7 @@ jobs:
           # will consume the replacement package in the subsequent image build.
           make -C "$NEWOS_ROOT" CROSS_PREFIX=x86_64-elf- build/sample.new V=0 \
             2>&1 | tee "$RUNNER_TEMP/newos-sample-package.log"
-          cp "$VOXEL_ROOT/build/packages/voxel-0.1.0-x86_64.new" \
+          cp "$NEWOS_ROOT/build/packages/voxel-0.1.0-x86_64.new" \
             "$NEWOS_ROOT/build/sample.new"
           test -s "$NEWOS_ROOT/build/sample.new"
           # The archive's internal metadata identifies it as voxel; NEWOS's
