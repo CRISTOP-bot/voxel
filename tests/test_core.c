@@ -138,7 +138,7 @@ static void test_classic_ui_widgets(void)
     voxel_ui_titlebar(&surface,(struct voxel_ui_rect){2,24,70,20},"WINDOW",1);
     assert(pixels[3+25*80]==VOXEL_UI_NAVY);
     voxel_ui_menu_bar(&surface,2,46,70,labels,3);
-    assert(pixels[2+63*80]==VOXEL_UI_FACE);
+    assert(pixels[2+47*80]==VOXEL_UI_FACE);
     voxel_ui_bevel(&surface,(struct voxel_ui_rect){78,58,8,8},0);
     assert(pixels[79+59*80]==VOXEL_UI_WHITE);
     voxel_ui_menu(&surface,(struct voxel_ui_rect){0,0,40,10},labels,3,1);
