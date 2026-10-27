@@ -2,7 +2,7 @@
 name = "voxel"
 version = "0.1.0"
 arch = "x86_64"
-desc = "Layered software compositor and movable-window demonstration"
+desc = "Classic-style desktop demo and software graphics stack"
 license = "MIT"
 maintainer = "CRISTOP-bot"
 build = "make -C /path/to/voxel package"

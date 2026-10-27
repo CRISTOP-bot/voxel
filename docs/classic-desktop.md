@@ -7,7 +7,7 @@ window protocol, or claims of keyboard support.
 
 ## Components
 
-- `include/voxel/classic_ui.h`, `src/classic_ui.c`: clipped 5×7 bitmap text,
+- `include/voxel/classic_ui.h`, `src/theme/classic.c`: clipped 5×7 bitmap text,
   neutral gray/navy color constants, raised/sunken bevels, square buttons,
   active/inactive title bars, window frames, compact menu bars and popup menus,
   three pixel-art icons, Start menu, taskbar, and a dialog helper.

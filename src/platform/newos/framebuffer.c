@@ -1,16 +1,8 @@
 #include "voxel/framebuffer.h"
+#include "syscall.h"
 
 #include <stdint.h>
 
-static long voxel_syscall1(long number, long argument)
-{
-    long result;
-    __asm__ __volatile__("int $0x80"
-                         : "=a"(result)
-                         : "a"(number), "D"(argument)
-                         : "memory");
-    return result;
-}
 
 int voxel_framebuffer_open(struct voxel_framebuffer *fb)
 {
@@ -20,7 +12,7 @@ int voxel_framebuffer_open(struct voxel_framebuffer *fb)
     fb->info.present = 0;
     fb->info.width = fb->info.height = fb->info.pitch = 0;
     fb->info.bpp = fb->info._pad = 0;
-    if (voxel_syscall1(VOXEL_SYS_FBINFO, (long)(uintptr_t)&fb->info) != 0)
+    if (voxel_newos_syscall1(VOXEL_SYS_FBINFO, (long)(uintptr_t)&fb->info) != 0)
         return -1;
     if (!fb->info.present || !fb->info.width || !fb->info.height ||
         fb->info.width > INT32_MAX || fb->info.height > INT32_MAX ||
@@ -58,7 +50,7 @@ int voxel_framebuffer_blit(struct voxel_framebuffer *fb,
         request.h = 1;
         request.pixels = (uint64_t)(uintptr_t)(pixels + (size_t)row * stride_pixels);
         request.pixlen = (uint64_t)width * sizeof(*pixels);
-        if (voxel_syscall1(VOXEL_SYS_FBWRITE,
+        if (voxel_newos_syscall1(VOXEL_SYS_FBWRITE,
                            (long)(uintptr_t)&request) != 0)
             return -1;
     }

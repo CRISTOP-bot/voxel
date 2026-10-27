@@ -4,7 +4,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 header = (root / "include/voxel/classic_ui.h").read_text()
-source = (root / "src/classic_ui.c").read_text()
+source = (root / "src/theme/classic.c").read_text()
 demo = (root / "demo/voxel_demo.c").read_text()
 makefile = (root / "Makefile").read_text()
 
@@ -20,5 +20,10 @@ for api in (
 for interaction in ("pointer_click", "dragging", "maximized", "minimized",
                     "file_menu_open", "about_dialog"):
     assert interaction in demo, f"missing desktop interaction state: {interaction}"
-assert "src/classic_ui.c" in makefile, "classic widgets aren't in the portable core build"
+assert "src/theme/classic.c" in makefile, "classic theme implementation is not in the portable core build"
 print("VOXEL classic UI source contract: PASS")
+
+platform_syscall = (root / "src/platform/newos/syscall.c").read_text()
+assert 'int $0x80' in platform_syscall
+assert 'voxel_newos_syscall1' in (root / "src/platform/newos/framebuffer.c").read_text()
+assert 'voxel_newos_syscall1' in (root / "src/platform/newos/input.c").read_text()

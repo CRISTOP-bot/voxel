@@ -10,7 +10,7 @@ This is an early graphics foundation—not a desktop environment or a complete g
 - A bounded 16-layer compositor, per-layer visibility, ordering, clipping and straight-alpha blending.
 - A NEWOS x86_64 `int $0x80` framebuffer backend using `SYS_FBINFO` (453) and `SYS_FBWRITE` (454). Frames are submitted as XRGB8888 words; NEWOS converts these to the active 24- or 32-bpp panel layout.
 - A NEWOS mouse snapshot reader using `SYS_MOUSE_GET` (455), and a sleep helper using `SYS_SLEEP` (35).
-- Reusable classic UI primitives in `include/voxel/classic_ui.h` and `src/classic_ui.c`: bitmap text, bevels, square buttons, titlebars, window frames, menu bars and popups, icons, taskbar, Start menu, and dialogs.
+- Reusable classic UI primitives in `include/voxel/classic_ui.h` and `src/theme/classic.c`: bitmap text, bevels, square buttons, titlebars, window frames, menu bars and popups, icons, taskbar, Start menu, and dialogs.
 - `voxel.elf`, a mouse-driven classic desktop demo with task switching, Settings/About windows, caption controls, and title-bar dragging.
 - Optional `voxel-tinygl.elf`, a TinyGL triangle rendering smoke demo. TinyGL is pinned as a submodule at `c2e48591a6bfba1a85f1b87a78dcf1abf7dff57a`; its allocator is a bounded 16 MiB single-threaded arena.
 - A host-side core test suite and a NEWOS package spec.
@@ -25,6 +25,17 @@ This is an early graphics foundation—not a desktop environment or a complete g
 - The layer array and demo are single-threaded. The allocator is not thread-safe.
 
 The desktop uses a flat teal background, compact gray controls, navy active title bars and raised/sunken bevels—no neon, glass effects, rounded cards or decorative gradients. See [`docs/classic-desktop.md`](docs/classic-desktop.md).
+
+## Source layout
+
+- `include/voxel/`: public surface, compositor, framebuffer, input, ABI, and classic-widget interfaces.
+- `src/graphics/`: software surfaces, compositor, and bounded TinyGL allocator.
+- `src/theme/classic.c`: reusable pixel-font, bevel, button, titlebar, menu, icon, taskbar, Start-menu, and dialog drawing.
+- `src/platform/newos/`: real NEWOS framebuffer and mouse/sleep backend plus the shared syscall bridge.
+- `demo/`: the single-process classic desktop and optional TinyGL rendering demo.
+- `tests/`: portable graphics/widget tests and source contract checks.
+
+This is a modular graphics stack and demonstration, not yet the full desktop tree: there is no application/window server, desktop session, filesystem/process service, keyboard event API, or independent Explorer/terminal/settings apps. Those components are not scaffolded as empty files.
 
 ## Build and tests
 

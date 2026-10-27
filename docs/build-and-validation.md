@@ -16,7 +16,7 @@ make NEWOS_ROOT=/path/to/NEWOS TINYGL_ROOT=vendor/tinygl tinygl
 make NEWOS_ROOT=/path/to/NEWOS package
 ```
 
-`make test` runs a source contract and compiles `src/surface.c`, `src/compositor.c`, `src/classic_ui.c`, and `tests/test_core.c` with the host compiler. It checks the portable core only; it does not execute NEWOS syscalls or either demo. `demo`, `package`, and `tinygl` are separate Make targets. The TinyGL build opts into FPU support (`NEWOS_FPU=1`) and links the pinned TinyGL source with VOXEL's bounded allocator.
+`make test` runs a source contract and compiles `src/graphics/surface.c`, `src/graphics/compositor.c`, `src/theme/classic.c`, and `tests/test_core.c` with the host compiler. It checks the portable core only; it does not execute NEWOS syscalls or either demo. `demo`, `package`, and `tinygl` are separate Make targets. The TinyGL build opts into FPU support (`NEWOS_FPU=1`) and links the pinned TinyGL source with VOXEL's bounded allocator.
 
 ## Functional limitations and validation scope
 
@@ -31,7 +31,7 @@ make NEWOS_ROOT=/path/to/NEWOS package
 - **Entry-point failure:** [run 39194826040](https://github.com/CRISTOP-bot/voxel/actions/runs/39194826040) installed the package but launched an ELF without `_start`; QEMU faulted at `0x23` (`RIP=0x400985`) before the demo was ready. Inspection showed entry `0x400000` landed in `draw_window`; the workflow had checked for `crt0.o` without linking it. [Its artifact](https://github.com/CRISTOP-bot/voxel/actions/runs/39194826040/artifacts/12160964666) contains the logs and ELFs.
 - **Corrected target validation:** [run 39196790955](https://github.com/CRISTOP-bot/voxel/actions/runs/39196790955) passed on commit `0be80a975154951eaa23b247b714a52390ddc332`, against NEWOS `7cb7d01a2798224c9e850868b35e60b4943425ba`. It confirmed the regular ELF entry `0x400000` matches a defined `_start`, built and installed `voxel 0.1.0`, booted NEWOS with the `1280x800`, pitch-5120, 32-bpp framebuffer, and passed the NEWOS 7-test and 9-test suites. The serial log contains both `VOXEL: software compositor ready` and `VOXEL: demo completed successfully`, with no page-fault marker. [The uploaded artifact](https://github.com/CRISTOP-bot/voxel/actions/runs/39196790955/artifacts/12162401876) includes the ELF files, package, ISO, and logs.
 - The optional TinyGL build in run 39196790955 also passed its ELF-entry check, but TinyGL was **not executed in QEMU**. Its build logged 111 compiler warnings (mainly unused variables/parameters and implicit fallthrough) and an RWX LOAD-segment linker warning. The regular VOXEL ELF and NEWOS userland image also emitted RWX warnings; these did not fail the entry, install, boot, or one-frame demo checks, but remain noted.
-- Earlier TinyGL attempt [39190307402](https://github.com/CRISTOP-bot/voxel/actions/runs/39190307402) exposed the SDK's missing `max_align_t`; `src/tinygl_allocator.c` now uses explicit 16-byte x86_64 alignment. The successful regular demo run does not establish TinyGL runtime behavior.
+- Earlier TinyGL attempt [39190307402](https://github.com/CRISTOP-bot/voxel/actions/runs/39190307402) exposed the SDK's missing `max_align_t`; `src/graphics/tinygl_allocator.c` now uses explicit 16-byte x86_64 alignment. The successful regular demo run does not establish TinyGL runtime behavior.
 
 The target workflow now passes NEWOS's `crt0.o` to the real cross-link and verifies each ELF entry against a defined `_start`. It stages the actual `.new` package only in the disposable NEWOS test image; no NEWOS repository is modified. The one-frame, headless QEMU result verifies target execution and framebuffer presentation code, not visual appearance or interactive mouse dragging.
 
@@ -51,3 +51,12 @@ The authoring sandbox lacks a working local `make`, cross-compiler and QEMU. Tar
 Portable core tests check raised/sunken button pixels, active navy titlebar,
 menu-bar output, popup rendering and clipping at the surface boundary. These
 host tests do not claim target visual or interactive validation.
+
+
+## Layered source map
+
+The portable core sources are under `src/graphics/`, with classic-style drawing
+in `src/theme/classic.c`. NEWOS-specific framebuffer/input/syscall code is under
+`src/platform/newos/`. There is intentionally no parallel host implementation
+of NEWOS syscalls. `make test` builds the portable graphics/theme sources only;
+it does not prove the target backend, desktop session, or unsupported APIs.

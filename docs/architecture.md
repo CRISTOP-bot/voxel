@@ -15,16 +15,16 @@ Demo programs
 
 ### Portable core
 
-- `include/voxel/surface.h`, `src/surface.c`: caller-owned pixel buffers, explicit pixel stride, clipped rectangle and point operations. Initialization checks the requested storage capacity.
-- `include/voxel/compositor.h`, `src/compositor.c`: caller-owned output buffer and up to `VOXEL_MAX_LAYERS` ordered surfaces. Array order is back-to-front; `voxel_compositor_raise()` moves the selected layer to the last/front position. Composition starts from a dark opaque background and blends straight-alpha ARGB layers over the result. A clip rectangle restricts output writes.
+- `include/voxel/surface.h`, `src/graphics/surface.c`: caller-owned pixel buffers, explicit pixel stride, clipped rectangle and point operations. Initialization checks the requested storage capacity.
+- `include/voxel/compositor.h`, `src/graphics/compositor.c`: caller-owned output buffer and up to `VOXEL_MAX_LAYERS` ordered surfaces. Array order is back-to-front; `voxel_compositor_raise()` moves the selected layer to the last/front position. Composition starts from a dark opaque background and blends straight-alpha ARGB layers over the result. A clip rectangle restricts output writes.
 
 The core owns neither surface pixels nor output memory. Callers must keep storage alive and must not mutate surface metadata to invalid values after initialization.
 
 ### NEWOS backend
 
 - `include/voxel/abi.h`: fixed-width syscall records and compile-time layout guards.
-- `src/newos_backend.c`: obtains framebuffer geometry and submits bounded XRGB8888 rectangles with `SYS_FBWRITE`.
-- `src/input.c`: polls the latest mouse snapshot and exposes a duration-based sleep helper.
+- `src/platform/newos/framebuffer.c`: obtains framebuffer geometry and submits bounded XRGB8888 rectangles with `SYS_FBWRITE`.
+- `src/platform/newos/input.c`: polls the latest mouse snapshot and exposes a duration-based sleep helper.
 
 The kernel's display memory is not directly mapped by VOXEL. `SYS_FBWRITE` accepts contiguous 32-bit `0x00RRGGBB` words and performs conversion to the framebuffer's native RGB channel masks. Panel pitch is therefore checked as geometry metadata but is not used to stride the source buffer.
 
@@ -35,7 +35,7 @@ No keyboard event API is implemented because the current inspected NEWOS userspa
 - `demo/voxel_demo.c` draws a fixed-size 640×480 software desktop and windows, centers it in the detected framebuffer, polls the PS/2 pointer, raises the cursor over windows, and permits title-bar dragging and close-square clicks.
 - `demo/tinygl_demo.c` optionally initializes TinyGL with a bounded arena allocator, renders a triangle into a 32-bit software Z-buffer, and presents the pixel words through the same framebuffer backend. It is a rendering smoke demo, not a reusable GL window system.
 
-The pinned TinyGL ABI exposes `GLint`/`GLuint`, `GLfloat`, `GLdouble`, and ordinary pointers for the structures and buffers used here; `ZB_open()` allocates these through `gl_malloc` and releases them through `gl_free`. Its default `TGL_FEATURE_ALIGNAS` is 0, and the target build does not compile the separate example files that declare aligned vector types. `src/tinygl_allocator.c` uses the x86_64 ABI's 16-byte general-allocation alignment instead of relying on `max_align_t`, which the NEWOS SDK headers do not declare. Both the arena and block-header union are aligned to 16 bytes, the header size is statically required to be a multiple of 16, and allocation sizes are rounded to that boundary. This meets TinyGL's configured 16-byte alignment option too, but should be revisited if the target ABI or allocator contract changes.
+The pinned TinyGL ABI exposes `GLint`/`GLuint`, `GLfloat`, `GLdouble`, and ordinary pointers for the structures and buffers used here; `ZB_open()` allocates these through `gl_malloc` and releases them through `gl_free`. Its default `TGL_FEATURE_ALIGNAS` is 0, and the target build does not compile the separate example files that declare aligned vector types. `src/graphics/tinygl_allocator.c` uses the x86_64 ABI's 16-byte general-allocation alignment instead of relying on `max_align_t`, which the NEWOS SDK headers do not declare. Both the arena and block-header union are aligned to 16 bytes, the header size is statically required to be a multiple of 16, and allocation sizes are rounded to that boundary. This meets TinyGL's configured 16-byte alignment option too, but should be revisited if the target ABI or allocator contract changes.
 
 ## Current limitations
 
@@ -52,7 +52,7 @@ The TinyGL optional dependency is a submodule pinned to `jserv/tinygl` commit `c
 
 ### Reusable classic UI
 
-`include/voxel/classic_ui.h` and `src/classic_ui.c` add clipped 5×7 bitmap text,
+`include/voxel/classic_ui.h` and `src/theme/classic.c` add clipped 5×7 bitmap text,
 gray/navy palette constants, raised/sunken bevels, square buttons, active and
 inactive title bars, window frames, menu bars/popups, pixel-art icons, taskbar,
 Start menu, and a compact message dialog. They draw into caller-owned VOXEL
@@ -63,3 +63,21 @@ The desktop remains a mouse-driven single-process demo, not a persistent system
 window manager. NEWOS currently exposes no keyboard-event syscall to the program;
 keyboard navigation is not claimed. Host tests cannot prove target cross-build,
 QEMU runtime, visual output, or interactive behavior.
+
+
+## Source layout and implementation status
+
+The source tree is layered by responsibility: `src/graphics/` owns software
+surfaces/composition and the TinyGL allocator; `src/theme/classic.c` implements
+the reusable Win9x-style drawing primitives; and `src/platform/newos/` contains
+the framebuffer presenter, mouse/sleep backend, and the single `int $0x80` ABI
+bridge. Public drawing/input/framebuffer headers remain under `include/voxel/`.
+The Makefile lists these translation units explicitly, so moving a file cannot
+quietly omit it from host tests or target linking.
+
+The larger proposed desktop tree is not yet implemented. In particular, this
+repository does not currently contain independent app processes, filesystem or
+process APIs, a window server, persistent desktop/session services, keyboard
+events, text input, font/image loaders, or several proposed applications. Those
+need verified NEWOS interfaces and real implementations before corresponding
+source modules or app claims are added; no placeholder modules are provided.

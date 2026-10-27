@@ -8,8 +8,8 @@ WARNINGS := -Wall -Wextra -Werror
 PORT_CFLAGS := -std=gnu11 -O2 -ffreestanding -fno-pic -fno-pie \
                -fno-stack-protector -fno-builtin -fno-asynchronous-unwind-tables \
                -fno-unwind-tables -mgeneral-regs-only $(WARNINGS) -Iinclude
-CORE_SRCS := src/surface.c src/compositor.c src/classic_ui.c
-BACKEND_SRCS := src/newos_backend.c src/input.c
+CORE_SRCS := src/graphics/surface.c src/graphics/compositor.c src/theme/classic.c
+BACKEND_SRCS := src/platform/newos/framebuffer.c src/platform/newos/input.c src/platform/newos/syscall.c
 VOXEL_DEMO := $(BUILD_DIR)/voxel.elf
 TINYGL_DEMO := $(BUILD_DIR)/voxel-tinygl.elf
 TINYGL_SRCS := \
@@ -45,7 +45,7 @@ check-tinygl: check-newos
 
 tinygl: $(TINYGL_DEMO)
 
-$(TINYGL_DEMO): demo/tinygl_demo.c src/tinygl_allocator.c $(BACKEND_SRCS) $(TINYGL_SRCS) | check-tinygl
+$(TINYGL_DEMO): demo/tinygl_demo.c src/graphics/tinygl_allocator.c $(BACKEND_SRCS) $(TINYGL_SRCS) | check-tinygl
 	@mkdir -p $(dir $@)
 	NEWOS_FPU=1 "$(NEWOS_GCC)" -std=gnu11 -O2 -ffreestanding -fno-pic -fno-pie \
 	  -fno-stack-protector -fno-builtin -fno-asynchronous-unwind-tables \
