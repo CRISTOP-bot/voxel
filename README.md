@@ -1,6 +1,6 @@
 # VOXEL
 
-**VOXEL** is a small, modular software graphics stack and NEWOS framebuffer demonstration. It currently implements CPU-backed XRGB/ARGB surfaces, clipping and alpha compositing, a NEWOS framebuffer presenter, and a movable-window demo with PS/2 mouse pointer polling. It lives in its own repository and does not modify NEWOS source repositories.
+**VOXEL** is a small, modular software graphics stack and NEWOS framebuffer demonstration. It currently implements CPU-backed XRGB/ARGB surfaces, clipping and alpha compositing, a NEWOS framebuffer presenter, and a classic desktop demo with reusable gray/navy widgets, pixel-art icons, Start menu, taskbar, menus, dialogs, and mouse-driven windows. It lives in its own repository and does not modify NEWOS source repositories.
 
 This is an early graphics foundation—not a desktop environment or a complete graphics API. The public surface/compositor code is kept separate from the NEWOS syscall backend so the core can be tested on a host.
 
@@ -10,18 +10,21 @@ This is an early graphics foundation—not a desktop environment or a complete g
 - A bounded 16-layer compositor, per-layer visibility, ordering, clipping and straight-alpha blending.
 - A NEWOS x86_64 `int $0x80` framebuffer backend using `SYS_FBINFO` (453) and `SYS_FBWRITE` (454). Frames are submitted as XRGB8888 words; NEWOS converts these to the active 24- or 32-bpp panel layout.
 - A NEWOS mouse snapshot reader using `SYS_MOUSE_GET` (455), and a sleep helper using `SYS_SLEEP` (35).
-- `voxel.elf`, a software-composited desktop demo with three draggable windows, close controls and a software cursor.
+- Reusable classic UI primitives in `include/voxel/classic_ui.h` and `src/classic_ui.c`: bitmap text, bevels, square buttons, titlebars, window frames, menu bars and popups, icons, taskbar, Start menu, and dialogs.
+- `voxel.elf`, a mouse-driven classic desktop demo with task switching, Settings/About windows, caption controls, and title-bar dragging.
 - Optional `voxel-tinygl.elf`, a TinyGL triangle rendering smoke demo. TinyGL is pinned as a submodule at `c2e48591a6bfba1a85f1b87a78dcf1abf7dff57a`; its allocator is a bounded 16 MiB single-threaded arena.
 - A host-side core test suite and a NEWOS package spec.
 
 ## Not implemented / limitations
 
 - **VOXEL has no keyboard-event input.** Current NEWOS userspace exposes no keyboard-event syscall to the program; the sleep helper is not an input API.
-- **No GPU acceleration, window server, or font/text rendering.** VOXEL is a CPU software compositor, not a complete desktop or general-purpose OpenGL implementation; it also has no input-focus model or persistent window manager.
+- **No GPU acceleration, window server, or full font rendering.** VOXEL is a CPU software compositor; its tiny 5×7 bitmap font is for this demo, not a complete desktop or general-purpose OpenGL implementation.
 - **Target behavior needs target-specific validation.** A host-side core-test pass does not demonstrate that the NEWOS executable builds correctly or runs in QEMU; cross-build, package installation, and QEMU runtime evidence must be checked separately.
 - The demo requires a NEWOS boot with a supported Limine framebuffer of at least 640×480 and a working PS/2 mouse for interaction. It is a standalone program, not integrated into NEWOS's shell/session startup.
 - The optional TinyGL target cross-compiled successfully and its ELF entry was verified in target run [39196790955](https://github.com/CRISTOP-bot/voxel/actions/runs/39196790955), but TinyGL itself has **not** been run in QEMU. Its build still reports compiler warnings and an RWX LOAD-segment warning.
 - The layer array and demo are single-threaded. The allocator is not thread-safe.
+
+The desktop uses a flat teal background, compact gray controls, navy active title bars and raised/sunken bevels—no neon, glass effects, rounded cards or decorative gradients. See [`docs/classic-desktop.md`](docs/classic-desktop.md).
 
 ## Build and tests
 

@@ -1,4 +1,5 @@
 #include "voxel/compositor.h"
+#include "voxel/classic_ui.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -120,6 +121,30 @@ static void test_present_bounds(void)
     assert(present_calls == 1); /* rejected before reaching the backend */
 }
 
+
+static void test_classic_ui_widgets(void)
+{
+    uint32_t pixels[80u * 60u];
+    struct voxel_surface surface;
+    static const char *const labels[] = { "File", "View", "Help" };
+    size_t i;
+    for (i = 0; i < 80u * 60u; ++i) pixels[i] = 0xdeadbeefu;
+    assert(voxel_surface_init(&surface,80,60,80,VOXEL_XRGB8888,pixels,80u*60u)==0);
+    voxel_surface_clear(&surface,VOXEL_UI_FACE);
+    voxel_ui_button(&surface,(struct voxel_ui_rect){2,2,30,18},"OK",0);
+    assert(pixels[2+2*80]==VOXEL_UI_LIGHT);
+    voxel_ui_button(&surface,(struct voxel_ui_rect){2,2,30,18},"OK",1);
+    assert(pixels[2+2*80]==VOXEL_UI_DARK);
+    voxel_ui_titlebar(&surface,(struct voxel_ui_rect){2,24,70,20},"WINDOW",1);
+    assert(pixels[3+25*80]==VOXEL_UI_NAVY);
+    voxel_ui_menu_bar(&surface,2,46,70,labels,3);
+    assert(pixels[2+63*80]==VOXEL_UI_FACE);
+    voxel_ui_bevel(&surface,(struct voxel_ui_rect){78,58,8,8},0);
+    assert(pixels[79+59*80]==VOXEL_UI_WHITE);
+    voxel_ui_menu(&surface,(struct voxel_ui_rect){0,0,40,10},labels,3,1);
+    assert(pixels[1]==VOXEL_UI_LIGHT);
+}
+
 static void test_invalid_compositor_arguments(void)
 {
     uint32_t output[4];
@@ -133,6 +158,7 @@ int main(void)
     test_surface_bounds_and_stride();
     test_composition_clip_alpha_order();
     test_present_bounds();
+    test_classic_ui_widgets();
     test_invalid_compositor_arguments();
     puts("VOXEL core tests: PASS");
     return 0;

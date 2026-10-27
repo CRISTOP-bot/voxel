@@ -16,7 +16,7 @@ make NEWOS_ROOT=/path/to/NEWOS TINYGL_ROOT=vendor/tinygl tinygl
 make NEWOS_ROOT=/path/to/NEWOS package
 ```
 
-`make test` compiles `src/surface.c`, `src/compositor.c`, and `tests/test_core.c` with the host compiler. It checks the portable core only; it does not execute NEWOS syscalls or either demo. `demo`, `package`, and `tinygl` are separate Make targets. The TinyGL build opts into FPU support (`NEWOS_FPU=1`) and links the pinned TinyGL source with VOXEL's bounded allocator.
+`make test` runs a source contract and compiles `src/surface.c`, `src/compositor.c`, `src/classic_ui.c`, and `tests/test_core.c` with the host compiler. It checks the portable core only; it does not execute NEWOS syscalls or either demo. `demo`, `package`, and `tinygl` are separate Make targets. The TinyGL build opts into FPU support (`NEWOS_FPU=1`) and links the pinned TinyGL source with VOXEL's bounded allocator.
 
 ## Functional limitations and validation scope
 
@@ -45,3 +45,9 @@ The target workflow now passes NEWOS's `crt0.o` to the real cross-link and verif
 6. **Visual/interactive behavior:** the headless one-frame QEMU test does not provide a screenshot or exercise mouse dragging; do not claim those behaviors from its success.
 
 The authoring sandbox lacks a working local `make`, cross-compiler and QEMU. Target build and QEMU evidence therefore comes from the linked GitHub Actions run, not a local execution.
+
+## Classic widget tests
+
+Portable core tests check raised/sunken button pixels, active navy titlebar,
+menu-bar output, popup rendering and clipping at the surface boundary. These
+host tests do not claim target visual or interactive validation.

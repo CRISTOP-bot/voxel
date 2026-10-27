@@ -48,3 +48,18 @@ The pinned TinyGL ABI exposes `GLint`/`GLuint`, `GLfloat`, `GLdouble`, and ordin
 VOXEL targets the current NEWOS x86_64 syscall ABI using `int $0x80`: `SYS_FBINFO=453`, `SYS_FBWRITE=454`, `SYS_MOUSE_GET=455`, and `SYS_SLEEP=35`. The framebuffer info record is 40 bytes, FBWRITE request is 48 bytes, mouse snapshot is 32 bytes, and timespec is 16 bytes; compile-time assertions in `abi.h` guard these sizes.
 
 The TinyGL optional dependency is a submodule pinned to `jserv/tinygl` commit `c2e48591a6bfba1a85f1b87a78dcf1abf7dff57a`. Its 32-bit `PIXEL`/RGBA configuration uses `0x00RRGGBB`, matching the NEWOS write interface. In target run [39196790955](https://github.com/CRISTOP-bot/voxel/actions/runs/39196790955), TinyGL cross-compiled and its ELF entry matched a defined `_start`; it was not executed in QEMU. The build still reports compiler warnings and an RWX LOAD-segment warning, so runtime and warning cleanup remain separate work.
+
+
+### Reusable classic UI
+
+`include/voxel/classic_ui.h` and `src/classic_ui.c` add clipped 5×7 bitmap text,
+gray/navy palette constants, raised/sunken bevels, square buttons, active and
+inactive title bars, window frames, menu bars/popups, pixel-art icons, taskbar,
+Start menu, and a compact message dialog. They draw into caller-owned VOXEL
+surfaces and use no invented kernel API or display protocol. The demo uses only
+the documented framebuffer and mouse interfaces. Settings is illustrative.
+
+The desktop remains a mouse-driven single-process demo, not a persistent system
+window manager. NEWOS currently exposes no keyboard-event syscall to the program;
+keyboard navigation is not claimed. Host tests cannot prove target cross-build,
+QEMU runtime, visual output, or interactive behavior.

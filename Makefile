@@ -8,7 +8,7 @@ WARNINGS := -Wall -Wextra -Werror
 PORT_CFLAGS := -std=gnu11 -O2 -ffreestanding -fno-pic -fno-pie \
                -fno-stack-protector -fno-builtin -fno-asynchronous-unwind-tables \
                -fno-unwind-tables -mgeneral-regs-only $(WARNINGS) -Iinclude
-CORE_SRCS := src/surface.c src/compositor.c
+CORE_SRCS := src/surface.c src/compositor.c src/classic_ui.c
 BACKEND_SRCS := src/newos_backend.c src/input.c
 VOXEL_DEMO := $(BUILD_DIR)/voxel.elf
 TINYGL_DEMO := $(BUILD_DIR)/voxel-tinygl.elf
@@ -26,7 +26,7 @@ TINYGL_SRCS := \
   $(TINYGL_ROOT)/src/zpostprocess.c $(TINYGL_ROOT)/src/zraster.c \
   $(TINYGL_ROOT)/src/ztext.c $(TINYGL_ROOT)/src/ztriangle.c
 
-.PHONY: all demo tinygl test clean check-newos check-tinygl package
+.PHONY: all demo tinygl test clean check-newos check-tinygl package test-source
 all: demo
 
 demo: $(VOXEL_DEMO)
@@ -54,11 +54,14 @@ $(TINYGL_DEMO): demo/tinygl_demo.c src/tinygl_allocator.c $(BACKEND_SRCS) $(TINY
 	  -Iinclude -I"$(TINYGL_ROOT)/include" -I"$(TINYGL_ROOT)/src" \
 	  -o "$@" $^ -lm
 
-test:
+test: test-source
 	@mkdir -p $(BUILD_DIR)/tests
 	$(CC) -std=c11 $(WARNINGS) -pedantic -Iinclude \
 	  tests/test_core.c $(CORE_SRCS) -o $(BUILD_DIR)/tests/test_core
 	$(BUILD_DIR)/tests/test_core
+
+test-source:
+	python3 tests/test_classic_ui_source.py
 
 package: demo
 	@test -n "$(NEWOS_ROOT)" || { echo "Set NEWOS_ROOT to the NEWOS checkout" >&2; exit 1; }
