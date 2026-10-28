@@ -18,6 +18,7 @@ void voxel_run_draw(struct voxel_app_context *a)
 int voxel_run_key(struct voxel_app_context *a, uint32_t k)
 {
     struct run_state *s=state(a); unsigned n=0;
+    if(k==VOXEL_KEY_ENTER)return voxel_run_launch(a);
     while(s->path[n]&&n<VOXEL_APP_PATH_MAX-1)++n;
     if(k==VOXEL_KEY_BACKSPACE){if(n)s->path[n-1]=0;return 1;}
     if(k>=32&&k<127&&n<VOXEL_APP_PATH_MAX-1){s->path[n]=(char)k;s->path[n+1]=0;return 1;}
