@@ -3,6 +3,9 @@
 #include "../common/virtual_keyboard.h"
 struct editor_state{char path[VOXEL_APP_PATH_MAX];char text[VOXEL_APP_TEXT_MAX];uint32_t length;};
 static struct editor_state*st(struct voxel_app_context*a){return(struct editor_state*)a->state;}
+int voxel_editor_new(struct voxel_app_context *,const char *);
+int voxel_editor_save(struct voxel_app_context *,const char *);
+int voxel_editor_load(struct voxel_app_context *,const char *);
 void voxel_editor_init(struct voxel_app_context*a){struct editor_state*s=st(a);s->path[0]=0;s->length=0;s->text[0]=0;}
 void voxel_editor_draw(struct voxel_app_context*a){struct editor_state*s=st(a);voxel_surface_clear(a->surface,VOXEL_UI_FACE);voxel_ui_window_frame(a->surface, (struct voxel_ui_rect){2,2,(int32_t)a->surface->width-4,(int32_t)a->surface->height-4}, "Text Editor", 1);voxel_ui_button(a->surface,(struct voxel_ui_rect){12,30,50,18},"SAVE",0);voxel_ui_button(a->surface,(struct voxel_ui_rect){68,30,50,18},"OPEN",0);voxel_ui_text(a->surface,124,34,s->path[0]?s->path:"UNTITLED",VOXEL_UI_TEXT);voxel_ui_bevel(a->surface,(struct voxel_ui_rect){10,52,(int32_t)a->surface->width-20,(int32_t)a->surface->height-64},1);voxel_ui_text(a->surface,16,60,s->text,VOXEL_UI_TEXT);voxel_vk_draw(a->surface,(int32_t)a->surface->height-100);}
 int voxel_editor_key(struct voxel_app_context*a,uint32_t k){struct editor_state*s=st(a);if(k==8u&&s->length){s->text[--s->length]=0;return 1;}if(k>=32&&k<127&&s->length+1<sizeof(s->text)){s->text[s->length++]=(char)k;s->text[s->length]=0;return 1;}return 0;}

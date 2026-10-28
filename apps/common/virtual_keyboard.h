@@ -1,6 +1,7 @@
 #ifndef VOXEL_VIRTUAL_KEYBOARD_H
 #define VOXEL_VIRTUAL_KEYBOARD_H
 #include "voxel/surface.h"
+#include "voxel/app.h"
 #include <stdint.h>
 #define VOXEL_VK_ROW_H 23
 void voxel_vk_draw(struct voxel_surface *s, int32_t y);

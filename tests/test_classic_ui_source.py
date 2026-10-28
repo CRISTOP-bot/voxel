@@ -19,7 +19,7 @@ for api in (
     assert api in source, f"missing implementation: {api}"
 
 for interaction in ("pointer_click", "dragging", "maximized", "minimized",
-                    "menu_open"):
+                    "file_menu_open", "about_dialog"):
     assert interaction in demo, f"missing desktop interaction state: {interaction}"
 assert "src/theme/classic.c" in makefile, "classic theme implementation is not in the portable core build"
 for app in ("VOXEL_APP_EXPLORER", "VOXEL_APP_SETTINGS", "VOXEL_APP_RUN", "VOXEL_APP_TERMINAL", "VOXEL_APP_HELLOWORLD", "VOXEL_APP_EDITOR", "VOXEL_APP_IMAGEVIEW"):
