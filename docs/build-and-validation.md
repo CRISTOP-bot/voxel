@@ -60,3 +60,13 @@ in `src/theme/classic.c`. NEWOS-specific framebuffer/input/syscall code is under
 `src/platform/newos/`. There is intentionally no parallel host implementation
 of NEWOS syscalls. `make test` builds the portable graphics/theme sources only;
 it does not prove the target backend, desktop session, or unsupported APIs.
+
+## Application modules
+
+`apps/` contains in-process demo app modules. `make test` includes the app
+registry, widgets, bounded BMP decoder and fake-host tests. The NEWOS demo target
+links the app sources and `src/platform/newos/apps.c`, whose file/directory and
+spawn callbacks use the public NEWOS ABI. The full desktop session/window manager
+and independent app process model remain future work; the app modules are not
+separate `.new` packages. A mouse-driven virtual keyboard is provided because
+the pinned NEWOS ABI has no GUI keyboard event syscalls.

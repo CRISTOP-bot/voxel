@@ -1,6 +1,7 @@
 #include "voxel/classic_ui.h"
 #include "voxel/compositor.h"
 #include "voxel/input.h"
+#include "voxel/app.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -9,11 +10,11 @@
 #define VIEW_H 480u
 #define TASKBAR_H 30
 #define TITLE_H 22
-#define APP_COUNT 3
+#define APP_COUNT VOXEL_APP_COUNT
 #define POPUP_W VIEW_W
 #define POPUP_H VIEW_H
-#define MENU_W 180u
-#define MENU_H 112u
+#define MENU_W 188u
+#define MENU_H (APP_COUNT * 20u + 8u)
 #define CURSOR_W 12u
 #define CURSOR_H 18u
 
@@ -28,16 +29,17 @@ struct app_window {
 
 static uint32_t output_pixels[VIEW_W * VIEW_H];
 static uint32_t desktop_pixels[VIEW_W * VIEW_H];
-static uint32_t explorer_pixels[VIEW_W * (VIEW_H - TASKBAR_H)];
-static uint32_t settings_pixels[VIEW_W * (VIEW_H - TASKBAR_H)];
-static uint32_t about_pixels[VIEW_W * (VIEW_H - TASKBAR_H)];
+static uint32_t app_pixels[APP_COUNT][VIEW_W * (VIEW_H - TASKBAR_H)];
+static struct voxel_app_context app_contexts[APP_COUNT];
+static struct voxel_app_host app_host;
+static struct voxel_theme_state theme = { VOXEL_UI_DESKTOP, VOXEL_UI_FACE, VOXEL_UI_NAVY, 0, 0 };
 static uint32_t menu_pixels[POPUP_W * POPUP_H];
 static uint32_t cursor_pixels[CURSOR_W * CURSOR_H];
 static struct voxel_surface desktop, menu_surface, cursor;
 static struct app_window apps[APP_COUNT];
 static struct voxel_compositor compositor;
 static struct voxel_framebuffer fb;
-static int active_app=-1, menu_open=0, file_menu_open=0, about_dialog=0;
+static int active_app=-1, menu_open=0;
 static struct app_window *dragging=0;
 static int32_t drag_dx,drag_dy;
 static const char *dialog_title="About VOXEL";
@@ -80,7 +82,7 @@ static void draw_desktop(void)
 {
     size_t i;
     (void)voxel_surface_init(&desktop,VIEW_W,VIEW_H,VIEW_W,VOXEL_XRGB8888,desktop_pixels,VIEW_W*VIEW_H);
-    voxel_surface_clear(&desktop,VOXEL_UI_DESKTOP);
+    voxel_surface_clear(&desktop,theme.desktop);
     voxel_ui_icon(&desktop,12,14,0,"My Computer",0);
     voxel_ui_icon(&desktop,12,66,1,"Documents",0);
     voxel_ui_icon(&desktop,12,118,2,"Settings",0);
@@ -88,53 +90,15 @@ static void draw_desktop(void)
     voxel_ui_taskbar(&desktop,VIEW_W,VIEW_H,menu_open);
 }
 
-static void draw_explorer(struct app_window *a)
-{
-    static const char *const menus[]={"File","View","Help"};
-    struct voxel_ui_rect inner={4,4,(int32_t)a->width-8,(int32_t)a->height-8};
-    voxel_surface_clear(&a->surface,VOXEL_UI_FACE);
-    voxel_ui_window_frame(&a->surface,inner,a->title,active_app==0);
-    voxel_ui_menu_bar(&a->surface,inner.x+4,inner.y+TITLE_H+4,inner.width-8,menus,3);
-    voxel_ui_icon(&a->surface,inner.x+22,inner.y+TITLE_H+31,0,"Computer",0);
-    voxel_ui_icon(&a->surface,inner.x+108,inner.y+TITLE_H+31,1,"Documents",0);
-    voxel_ui_icon(&a->surface,inner.x+194,inner.y+TITLE_H+31,2,"Settings",0);
-    (void)voxel_surface_fill_rect(&a->surface,inner.x+7,inner.y+inner.height-23,inner.width-14,15,VOXEL_UI_FACE);
-    voxel_ui_bevel(&a->surface,(struct voxel_ui_rect){inner.x+7,inner.y+inner.height-23,inner.width-14,15},1);
-    voxel_ui_text(&a->surface,inner.x+14,inner.y+inner.height-19,"3 OBJECTS",VOXEL_UI_TEXT);
-}
 
-static void draw_settings(struct app_window *a)
-{
-    static const char *const menus[]={"File","Edit","Help"};
-    struct voxel_ui_rect inner={4,4,(int32_t)a->width-8,(int32_t)a->height-8};
-    voxel_surface_clear(&a->surface,VOXEL_UI_FACE);
-    voxel_ui_window_frame(&a->surface,inner,a->title,active_app==1);
-    voxel_ui_menu_bar(&a->surface,inner.x+4,inner.y+TITLE_H+4,inner.width-8,menus,3);
-    voxel_ui_text(&a->surface,inner.x+17,inner.y+TITLE_H+34,"DISPLAY PROPERTIES",VOXEL_UI_TEXT);
-    voxel_ui_text(&a->surface,inner.x+17,inner.y+TITLE_H+54,"COLOR SCHEME:",VOXEL_UI_TEXT);
-    voxel_ui_button(&a->surface,(struct voxel_ui_rect){inner.x+17,inner.y+TITLE_H+68,138,24},"CLASSIC 3D",1);
-    voxel_ui_text(&a->surface,inner.x+17,inner.y+TITLE_H+105,"800 X 600  -  256 COLORS",VOXEL_UI_TEXT);
-    voxel_ui_button(&a->surface,(struct voxel_ui_rect){inner.x+inner.width-174,inner.y+inner.height-35,75,23},"APPLY",0);
-    voxel_ui_button(&a->surface,(struct voxel_ui_rect){inner.x+inner.width-91,inner.y+inner.height-35,75,23},"CLOSE",0);
-}
 
-static void draw_about(struct app_window *a)
-{
-    struct voxel_ui_rect inner={4,4,(int32_t)a->width-8,(int32_t)a->height-8};
-    voxel_surface_clear(&a->surface,VOXEL_UI_FACE);
-    voxel_ui_window_frame(&a->surface,inner,a->title,active_app==2);
-    voxel_ui_icon(&a->surface,inner.x+14,inner.y+TITLE_H+24,0,"VOXEL",0);
-    voxel_ui_text(&a->surface,inner.x+63,inner.y+TITLE_H+28,"CLASSIC DESKTOP",VOXEL_UI_TEXT);
-    voxel_ui_text(&a->surface,inner.x+63,inner.y+TITLE_H+45,"SOFTWARE GUI DEMO",VOXEL_UI_TEXT);
-    voxel_ui_text(&a->surface,inner.x+16,inner.y+TITLE_H+78,"FRAMEBUFFER / MOUSE BACKEND",VOXEL_UI_TEXT);
-    voxel_ui_button(&a->surface,(struct voxel_ui_rect){inner.x+inner.width-82,inner.y+inner.height-35,68,23},"OK",0);
-}
+
+
+
 
 static void paint_app(int id)
 {
-    if(id==0) draw_explorer(&apps[id]);
-    else if(id==1) draw_settings(&apps[id]);
-    else draw_about(&apps[id]);
+    if(id>=0&&id<APP_COUNT) voxel_app_draw(&app_contexts[id],(enum voxel_app_id)id);
 }
 
 static uint32_t layer_for_surface(const struct voxel_surface *surface)
@@ -166,12 +130,11 @@ static void set_visible(struct app_window *a,int visible)
 
 static void draw_popup(void)
 {
-    static const char *const file_items[]={"Open","Close","About VOXEL"};
     voxel_surface_clear(&menu_surface,0);
-    if(menu_open) voxel_ui_start_menu(&menu_surface,0,(int32_t)VIEW_H-TASKBAR_H-(int32_t)MENU_H+1,-1);
-    if(file_menu_open&&apps[0].visible&&!apps[0].minimized)
-        voxel_ui_menu(&menu_surface,(struct voxel_ui_rect){apps[0].x+7,apps[0].y+49,112,65},file_items,3,-1);
-    if(about_dialog) voxel_ui_dialog(&menu_surface,(struct voxel_ui_rect){170,159,300,150},dialog_title,dialog_message);
+    if(menu_open) {
+        static const char *const items[APP_COUNT]={"About VOXEL","File Explorer","Settings","Run","Console","Hello World","Text Editor","Image Viewer"};
+        voxel_ui_menu(&menu_surface,(struct voxel_ui_rect){0,(int32_t)VIEW_H-TASKBAR_H-(int32_t)MENU_H+1,188,(int32_t)MENU_H},items,APP_COUNT,-1);
+    }
 }
 
 static void draw_pointer(void)
@@ -205,38 +168,22 @@ static int app_at(int32_t x,int32_t y)
 
 static void draw_task_buttons(void)
 {
-    static const char *const labels[APP_COUNT]={"My Computer","Settings","About VOXEL"};
     int i;
     for(i=0;i<APP_COUNT;++i) {
-        int32_t x=76+i*145;
-        struct voxel_ui_rect r={x,(int32_t)VIEW_H-TASKBAR_H+3,140,TASKBAR_H-6};
-        if(apps[i].visible) voxel_ui_button(&desktop,r,labels[i],active_app==i&&!apps[i].minimized);
+        int32_t x=76+(i%4)*140;
+        const struct voxel_app_descriptor *d=voxel_app_get((enum voxel_app_id)i);
+        struct voxel_ui_rect r={x,(int32_t)VIEW_H-TASKBAR_H+3,136,TASKBAR_H-6};
+        if(apps[i].visible&&d) voxel_ui_button(&desktop,r,d->title,active_app==i&&!apps[i].minimized);
     }
 }
 
 static void pointer_click(int32_t x,int32_t y,uint32_t buttons)
 {
     int id;
-    if(about_dialog) {
-        if(!point_in(x,y,170,159,300,150)||point_in(x,y,392,278,66,23)) { about_dialog=0; dialog_title="About VOXEL"; dialog_message="CLASSIC DESKTOP PREVIEW"; }
-        return;
-    }
-    if(file_menu_open) {
-        int32_t mx=apps[0].x+8,my=apps[0].y+49;
-        if(point_in(x,y,mx,my,112,65)) {
-            int item=(y-my-4)/20;
-            file_menu_open=0;
-            if(item==0) raise_app(0);
-            else if(item==1) { set_visible(&apps[0],0); apps[0].minimized=0; active_app=-1; }
-            else if(item==2) { dialog_title="About VOXEL"; dialog_message="CLASSIC DESKTOP PREVIEW"; about_dialog=1; }
-            return;
-        }
-        file_menu_open=0;
-    }
     if(y>=(int32_t)VIEW_H-TASKBAR_H) {
         if(x<70) { menu_open=!menu_open; return; }
         if(x>=76) {
-            int slot=(x-76)/145;
+            int slot=(x-76)/140;
             if(slot>=0&&slot<APP_COUNT&&apps[slot].visible) {
                 if(active_app==slot&&!apps[slot].minimized) {
                     apps[slot].minimized=1; set_visible(&apps[slot],0); active_app=-1;
@@ -250,10 +197,7 @@ static void pointer_click(int32_t x,int32_t y,uint32_t buttons)
         if(point_in(x,y,0,menu_y,(int32_t)MENU_W,(int32_t)MENU_H)) {
             int item=(y-menu_y-4)/20;
             menu_open=0;
-            if(item==0) raise_app(0);
-            else if(item==1) raise_app(0);
-            else if(item==2) raise_app(1);
-            else if(item==3) raise_app(2);
+            if(item>=0&&item<APP_COUNT) raise_app(item);
             return;
         }
         menu_open=0;
@@ -286,44 +230,13 @@ static void pointer_click(int32_t x,int32_t y,uint32_t buttons)
                 a->minimized=1;set_visible(a,0);active_app=-1;dragging=0;return;
             }
             if(buttons&1u) { dragging=a;drag_dx=lx;drag_dy=ly; }
-        } else if(id==1&&ly>=30&&ly<49) {
-            if(lx<60) {
-                file_menu_open=1;
-                menu_open=0;
-            } else if(lx<108) {
-                dialog_title="View Options";
-                dialog_message="NO WINDOW EFFECTS ENABLED";
-                about_dialog=1;
-            } else {
-                dialog_title="About VOXEL";
-                dialog_message="CLASSIC DESKTOP PREVIEW";
-                about_dialog=1;
-            }
-        } else if(id==1) {
-            int32_t inner_x=4, inner_y=4;
-            if(point_in(lx,ly,inner_x+300-8-174,inner_y+190-8-35,75,23)) {
-                dialog_title="Display Properties";
-                dialog_message="SETTINGS ARE DEMO ONLY";
-                about_dialog=1;
-            } else if(point_in(lx,ly,inner_x+300-8-91,inner_y+190-8-35,75,23)) {
-                set_visible(a,0); a->minimized=0; active_app=-1;
-            }
-        } else if(id==0&&ly>=30&&ly<49) {
-            if(lx<60) { file_menu_open=!file_menu_open; menu_open=0; }
-            else if(lx<108) {
-                file_menu_open=0;
-                dialog_title="View Options"; dialog_message="NO WINDOW EFFECTS ENABLED";
-                about_dialog=1;
-            } else {
-                file_menu_open=0;
-                dialog_title="About VOXEL"; dialog_message="CLASSIC DESKTOP PREVIEW";
-                about_dialog=1;
-            }
+        } else {
+            (void)voxel_app_pointer(&app_contexts[id],(enum voxel_app_id)id,lx,ly);
         }
         return;
     }
     if(x<55&&y<165) {
-        if(y<62||y<114) raise_app(0); else raise_app(1);
+        if(y<62||y<114) raise_app(VOXEL_APP_EXPLORER); else raise_app(VOXEL_APP_SETTINGS);
     }
 }
 
@@ -342,26 +255,35 @@ int main(int argc,char **argv)
        voxel_compositor_init(&compositor,VIEW_W,VIEW_H,VIEW_W,output_pixels,VIEW_W*VIEW_H)) {
         (void)os_write(no_space,sizeof(no_space)-1u);return 1;
     }
-    apps[0]=(struct app_window){.pixels=explorer_pixels,.width=320,.height=220,.x=60,.y=45,.visible=1,.title="My Computer"};
-    apps[1]=(struct app_window){.pixels=settings_pixels,.width=300,.height=190,.x=198,.y=115,.visible=1,.title="Settings"};
-    apps[2]=(struct app_window){.pixels=about_pixels,.width=280,.height=160,.x=166,.y=208,.visible=0,.title="About VOXEL"};
-    if(voxel_surface_init(&apps[0].surface,320,220,320,VOXEL_XRGB8888,explorer_pixels,VIEW_W*(VIEW_H-TASKBAR_H))||
-       voxel_surface_init(&apps[1].surface,300,190,300,VOXEL_XRGB8888,settings_pixels,VIEW_W*(VIEW_H-TASKBAR_H))||
-       voxel_surface_init(&apps[2].surface,280,160,280,VOXEL_XRGB8888,about_pixels,VIEW_W*(VIEW_H-TASKBAR_H))) {
+    voxel_newos_app_host_init(&app_host);
+    app_host.theme=&theme;
+    for(int i=0;i<APP_COUNT;++i) {
+        const struct voxel_app_descriptor *d=voxel_app_get((enum voxel_app_id)i);
+        uint32_t w=(i==VOXEL_APP_EXPLORER?380u:320u),h=(i==VOXEL_APP_EXPLORER?300u:240u);
+        apps[i]=(struct app_window){.pixels=app_pixels[i],.width=w,.height=h,.x=35+(i%3)*46,.y=35+(i%3)*38,.visible=(i==VOXEL_APP_EXPLORER||i==VOXEL_APP_SETTINGS),.title=d?d->title:"Application"};
+        if(voxel_surface_init(&apps[i].surface,w,h,VIEW_W,VOXEL_XRGB8888,app_pixels[i],VIEW_W*(VIEW_H-TASKBAR_H))) {
+            (void)os_write(no_space,sizeof(no_space)-1u);return 1;
+        }
+        voxel_app_init(&app_contexts[i],(enum voxel_app_id)i,&apps[i].surface,&app_host);
+    }
+    draw_desktop();draw_pointer();for(int i=0;i<APP_COUNT;++i)paint_app(i);draw_popup();
+    if(voxel_compositor_add(&compositor,&desktop,0,0,0)) {
         (void)os_write(no_space,sizeof(no_space)-1u);return 1;
     }
-    draw_desktop();draw_pointer();paint_app(0);paint_app(1);paint_app(2);draw_popup();
-    if(voxel_compositor_add(&compositor,&desktop,0,0,0)||
-       voxel_compositor_add(&compositor,&apps[0].surface,apps[0].x,apps[0].y,0)||
-       voxel_compositor_add(&compositor,&apps[1].surface,apps[1].x,apps[1].y,0)||
-       voxel_compositor_add(&compositor,&apps[2].surface,apps[2].x,apps[2].y,0)||
-       voxel_compositor_add(&compositor,&menu_surface,0,0,0)||
-       voxel_compositor_add(&compositor,&cursor,0,0,0)) {
+    for(int i=0;i<APP_COUNT;++i) {
+        if(voxel_compositor_add(&compositor,&apps[i].surface,apps[i].x,apps[i].y,0)) {
+            (void)os_write(no_space,sizeof(no_space)-1u);return 1;
+        }
+    }
+    if(voxel_compositor_add(&compositor,&menu_surface,0,0,0)||voxel_compositor_add(&compositor,&cursor,0,0,0)) {
         (void)os_write(no_space,sizeof(no_space)-1u);return 1;
     }
-    voxel_compositor_set_visible(&compositor,3,0);voxel_compositor_set_visible(&compositor,4,0);
-    active_app=1;
-    (void)voxel_compositor_raise(&compositor,2);
+    for(int i=0;i<APP_COUNT;++i) {
+        voxel_compositor_set_visible(&compositor,(uint32_t)(i+1),apps[i].visible);
+        if(apps[i].visible) (void)voxel_compositor_raise(&compositor,(uint32_t)(i+1));
+    }
+    voxel_compositor_set_visible(&compositor,(uint32_t)(APP_COUNT+1),0);
+    active_app=VOXEL_APP_EXPLORER;
     {
         uint32_t cursor_layer=layer_for_surface(&cursor);
         if(cursor_layer!=UINT32_MAX)
@@ -402,7 +324,7 @@ int main(int argc,char **argv)
             uint32_t mi=layer_for_surface(&menu_surface),ci=layer_for_surface(&cursor);
             if(mi!=UINT32_MAX) {
                 compositor.layers[mi].y=0;
-                voxel_compositor_set_visible(&compositor,mi,menu_open||file_menu_open||about_dialog);
+                voxel_compositor_set_visible(&compositor,mi,menu_open);
                 (void)voxel_compositor_raise(&compositor,mi);
             }
             if(ci!=UINT32_MAX)(void)voxel_compositor_raise(&compositor,ci);

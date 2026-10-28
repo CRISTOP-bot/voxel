@@ -37,6 +37,10 @@ The desktop uses a flat teal background, compact gray controls, navy active titl
 
 This is a modular graphics stack and demonstration, not yet the full desktop tree: there is no application/window server, desktop session, filesystem/process service, keyboard event API, or independent Explorer/terminal/settings apps. Those components are not scaffolded as empty files.
 
+## Applications
+
+The classic desktop build includes real in-process app modules: About, File Explorer, session-only Display Settings, Run, a limited console launcher, Hello World, a bounded text editor, and a 24-bit BMP viewer. Explorer uses NEWOS directory enumeration; Run launches via `spawn2`; editor file operations use the NEWOS read/write ABI. Text-entry widgets use an on-screen mouse keyboard because the pinned target ABI has no GUI keyboard event syscall. These apps are modules inside the demo, not separate processes or `.new` packages. Details and limitations: [`docs/apps.md`](docs/apps.md).
+
 ## Build and tests
 
 ### Host core tests

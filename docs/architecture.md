@@ -81,3 +81,17 @@ process APIs, a window server, persistent desktop/session services, keyboard
 events, text input, font/image loaders, or several proposed applications. Those
 need verified NEWOS interfaces and real implementations before corresponding
 source modules or app claims are added; no placeholder modules are provided.
+
+
+### Application modules
+
+`apps/` contains registered in-process app modules backed by `voxel_app_host`:
+File Explorer (NEWOS `READDIR`), Settings (session palette), Run and the console
+launcher (`SPAWN2`), a bounded text editor (NEWOS file read/write), Hello World,
+and a BMP image viewer (strict 24-bit uncompressed decoder). They are compiled
+into the demonstration process; they are not independent binaries or sandboxed
+applications. The app registry and portable app tests live alongside the core.
+The pinned NEWOS ABI exposes mouse polling but no GUI keyboard input syscall, so
+the text-entry views include a mouse-operated virtual keyboard. The console
+module launches absolute executable paths; it does not implement a shell, pipes,
+or console output redirection.

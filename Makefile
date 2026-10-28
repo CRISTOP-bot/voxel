@@ -8,8 +8,9 @@ WARNINGS := -Wall -Wextra -Werror
 PORT_CFLAGS := -std=gnu11 -O2 -ffreestanding -fno-pic -fno-pie \
                -fno-stack-protector -fno-builtin -fno-asynchronous-unwind-tables \
                -fno-unwind-tables -mgeneral-regs-only $(WARNINGS) -Iinclude
-CORE_SRCS := src/graphics/surface.c src/graphics/compositor.c src/theme/classic.c
-BACKEND_SRCS := src/platform/newos/framebuffer.c src/platform/newos/input.c src/platform/newos/syscall.c
+CORE_SRCS := src/graphics/surface.c src/graphics/compositor.c src/theme/classic.c src/graphics/bmp.c
+APP_SRCS := apps/about/about.c apps/explorer/explorer.c apps/settings/settings.c apps/run/run.c apps/terminal/term.c apps/helloworld/helloworld.c apps/editor/editor.c apps/imageview/imageview.c apps/common/app_registry.c apps/common/virtual_keyboard.c
+BACKEND_SRCS := src/platform/newos/framebuffer.c src/platform/newos/input.c src/platform/newos/syscall.c src/platform/newos/apps.c
 VOXEL_DEMO := $(BUILD_DIR)/voxel.elf
 TINYGL_DEMO := $(BUILD_DIR)/voxel-tinygl.elf
 TINYGL_SRCS := \
@@ -26,7 +27,7 @@ TINYGL_SRCS := \
   $(TINYGL_ROOT)/src/zpostprocess.c $(TINYGL_ROOT)/src/zraster.c \
   $(TINYGL_ROOT)/src/ztext.c $(TINYGL_ROOT)/src/ztriangle.c
 
-.PHONY: all demo tinygl test clean check-newos check-tinygl package test-source
+.PHONY: all demo tinygl test clean check-newos check-tinygl package test-source test-apps
 all: demo
 
 demo: $(VOXEL_DEMO)
@@ -35,7 +36,7 @@ check-newos:
 	@test -x "$(NEWOS_GCC)" || { echo "NEWOS cross compiler not found: $(NEWOS_GCC); build the NEWOS toolchain first" >&2; exit 1; }
 	@test -f "$(NEWOS_ROOT)/user/lib/app.ld" || { echo "NEWOS_ROOT is not a complete NEWOS checkout" >&2; exit 1; }
 
-$(VOXEL_DEMO): demo/voxel_demo.c $(CORE_SRCS) $(BACKEND_SRCS) | check-newos
+$(VOXEL_DEMO): demo/voxel_demo.c $(CORE_SRCS) $(APP_SRCS) $(BACKEND_SRCS) | check-newos
 	@mkdir -p $(dir $@)
 	"$(NEWOS_GCC)" $(PORT_CFLAGS) -o "$@" $^
 
@@ -45,7 +46,7 @@ check-tinygl: check-newos
 
 tinygl: $(TINYGL_DEMO)
 
-$(TINYGL_DEMO): demo/tinygl_demo.c src/graphics/tinygl_allocator.c $(BACKEND_SRCS) $(TINYGL_SRCS) | check-tinygl
+$(TINYGL_DEMO): demo/tinygl_demo.c src/graphics/tinygl_allocator.c src/platform/newos/framebuffer.c src/platform/newos/input.c src/platform/newos/syscall.c $(TINYGL_SRCS) | check-tinygl
 	@mkdir -p $(dir $@)
 	NEWOS_FPU=1 "$(NEWOS_GCC)" -std=gnu11 -O2 -ffreestanding -fno-pic -fno-pie \
 	  -fno-stack-protector -fno-builtin -fno-asynchronous-unwind-tables \
@@ -54,7 +55,7 @@ $(TINYGL_DEMO): demo/tinygl_demo.c src/graphics/tinygl_allocator.c $(BACKEND_SRC
 	  -Iinclude -I"$(TINYGL_ROOT)/include" -I"$(TINYGL_ROOT)/src" \
 	  -o "$@" $^ -lm
 
-test: test-source
+test: test-source test-apps
 	@mkdir -p $(BUILD_DIR)/tests
 	$(CC) -std=c11 $(WARNINGS) -pedantic -Iinclude \
 	  tests/test_core.c $(CORE_SRCS) -o $(BUILD_DIR)/tests/test_core
@@ -62,6 +63,11 @@ test: test-source
 
 test-source:
 	python3 tests/test_classic_ui_source.py
+
+test-apps: $(CORE_SRCS) $(APP_SRCS)
+	@mkdir -p $(BUILD_DIR)/tests
+	$(CC) -std=c11 $(WARNINGS) -pedantic -Iinclude -o $(BUILD_DIR)/tests/test_apps tests/apps/test_apps.c $(CORE_SRCS) $(APP_SRCS)
+	$(BUILD_DIR)/tests/test_apps
 
 package: demo
 	@test -n "$(NEWOS_ROOT)" || { echo "Set NEWOS_ROOT to the NEWOS checkout" >&2; exit 1; }

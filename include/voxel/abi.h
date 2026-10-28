@@ -12,6 +12,17 @@
 #define VOXEL_SYS_FBINFO   453
 #define VOXEL_SYS_FBWRITE  454
 #define VOXEL_SYS_MOUSE_GET 455
+#define VOXEL_SYS_OPEN 2
+#define VOXEL_SYS_CLOSE 3
+#define VOXEL_SYS_STAT 4
+#define VOXEL_SYS_LSEEK 8
+#define VOXEL_SYS_CHDIR 80
+#define VOXEL_SYS_GETCWD 79
+#define VOXEL_SYS_RENAME 82
+#define VOXEL_SYS_MKDIR 83
+#define VOXEL_SYS_UNLINK 87
+#define VOXEL_SYS_SPAWN2 451
+#define VOXEL_SYS_READDIR 457
 
 struct voxel_fbinfo {
     uint64_t present;
