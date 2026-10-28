@@ -4,6 +4,7 @@
 
 struct run_state { char path[VOXEL_APP_PATH_MAX]; };
 static struct run_state *state(struct voxel_app_context *a) { return (struct run_state *)a->state; }
+int voxel_run_launch(struct voxel_app_context *a);
 void voxel_run_init(struct voxel_app_context *a) { state(a)->path[0] = 0; }
 void voxel_run_draw(struct voxel_app_context *a)
 {
