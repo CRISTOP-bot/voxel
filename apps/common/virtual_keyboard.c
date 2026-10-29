@@ -30,6 +30,20 @@ void voxel_vk_draw(struct voxel_surface *s, int32_t top)
     }
 }
 
+int voxel_vk_pointer_key(struct voxel_surface *s,int32_t x,int32_t y,int32_t top,uint32_t *key)
+{
+    unsigned r,n=0;const char*row;int32_t slots,w,col;
+    if(!s||!key||y<top||x<4||s->width<80)return 0;
+    r=(unsigned)((y-top)/VOXEL_VK_ROW_H);if(r>=4)return 0;
+    row=caps_lock?upper_rows[r]:lower_rows[r];while(row[n])++n;
+    slots=(int32_t)n+(r==2?2:r==3?2:0);w=(int32_t)(s->width-8u)/slots;if(w<=0)return 0;col=(x-4)/w;if(col<0)return 0;
+    if(r==2&&(unsigned)col==n){*key=' ';return 1;}
+    if(r==2&&(unsigned)col==n+1){caps_lock=!caps_lock;*key=VOXEL_KEY_CAPS;return 1;}
+    if(r==3&&(unsigned)col==n){*key=VOXEL_KEY_BACKSPACE;return 1;}
+    if(r==3&&(unsigned)col==n+1){*key=VOXEL_KEY_ENTER;return 1;}
+    if((unsigned)col<n){*key=(uint32_t)row[col];return 1;}return 0;
+}
+
 int voxel_vk_pointer(struct voxel_surface *s,int32_t x,int32_t y,int32_t top,
                      char *text,uint32_t capacity,uint32_t *length,uint32_t *key)
 {

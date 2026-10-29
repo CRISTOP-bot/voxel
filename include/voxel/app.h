@@ -28,6 +28,8 @@ struct voxel_fs_entry {
     uint64_t size;
 };
 
+struct voxel_clock_time { uint16_t year; uint8_t month,day,hour,minute,second,pad; };
+
 struct voxel_theme_state {
     uint32_t desktop;
     uint32_t face;
@@ -46,8 +48,11 @@ struct voxel_app_host {
     int (*write_file)(void *userdata, const char *path, const void *buffer,
                       uint32_t bytes);
     int (*spawn)(void *userdata, const char *path);
+    int (*run_command)(void *userdata, const char *path, char *output,
+                       uint32_t capacity, uint32_t *bytes_read);
     int (*stat_path)(void *userdata, const char *path, uint32_t *mode);
     int (*getcwd)(void *userdata, char *buffer, uint32_t capacity);
+    int (*get_time)(void *userdata, struct voxel_clock_time *time);
     struct voxel_theme_state *theme;
     void (*open_path)(void *userdata, const char *path);
     int (*open_image)(void *userdata, const char *path);

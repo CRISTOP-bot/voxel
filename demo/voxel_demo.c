@@ -2,6 +2,7 @@
 #include "voxel/compositor.h"
 #include "voxel/input.h"
 #include "voxel/app.h"
+#include "voxel/taskbar.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -87,7 +88,7 @@ static void draw_desktop(void)
     voxel_ui_icon(&desktop,12,66,1,"Documents",0);
     voxel_ui_icon(&desktop,12,118,2,"Settings",0);
     /* Pixel-art desktop bitmap accent: intentionally flat, not a gradient. */
-    voxel_ui_taskbar(&desktop,VIEW_W,VIEW_H,menu_open);
+    { const struct voxel_app_descriptor *d[APP_COUNT]; uint8_t vis[APP_COUNT]; int i; for(i=0;i<APP_COUNT;i++){d[i]=voxel_app_get((enum voxel_app_id)i);vis[i]=(uint8_t)(apps[i].visible&&!apps[i].minimized);} voxel_taskbar_draw(&desktop,&app_host,d,vis,active_app,VIEW_W,VIEW_H,menu_open); }
 }
 
 
@@ -166,16 +167,7 @@ static int app_at(int32_t x,int32_t y)
     return -1;
 }
 
-static void draw_task_buttons(void)
-{
-    int i;
-    for(i=0;i<APP_COUNT;++i) {
-        int32_t x=76+(i%4)*140;
-        const struct voxel_app_descriptor *d=voxel_app_get((enum voxel_app_id)i);
-        struct voxel_ui_rect r={x,(int32_t)VIEW_H-TASKBAR_H+3,136,TASKBAR_H-6};
-        if(apps[i].visible&&d) voxel_ui_button(&desktop,r,d->title,active_app==i&&!apps[i].minimized);
-    }
-}
+
 
 static void pointer_click(int32_t x,int32_t y,uint32_t buttons)
 {
@@ -311,7 +303,7 @@ int main(int argc,char **argv)
             }
             previous_buttons=pointer.buttons;
         }
-        draw_desktop();draw_task_buttons();draw_popup();draw_pointer();
+        draw_desktop();draw_popup();draw_pointer();
         for(int i=0;i<APP_COUNT;++i) paint_app(i);
         for(int i=0;i<APP_COUNT;++i) {
             uint32_t li=layer_for_surface(&apps[i].surface);

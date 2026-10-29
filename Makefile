@@ -9,7 +9,7 @@ PORT_CFLAGS := -std=gnu11 -O2 -ffreestanding -fno-pic -fno-pie \
                -fno-stack-protector -fno-builtin -fno-asynchronous-unwind-tables \
                -fno-unwind-tables -mgeneral-regs-only $(WARNINGS) -Iinclude
 CORE_SRCS := src/graphics/surface.c src/graphics/compositor.c src/theme/classic.c src/graphics/bmp.c
-APP_SRCS := apps/about/about.c apps/explorer/explorer.c apps/settings/settings.c apps/run/run.c apps/terminal/term.c apps/helloworld/helloworld.c apps/editor/editor.c apps/imageview/imageview.c apps/common/app_registry.c apps/common/virtual_keyboard.c
+APP_SRCS := apps/about/about.c apps/explorer/explorer.c apps/settings/settings.c apps/run/run.c apps/terminal/term.c apps/helloworld/helloworld.c apps/editor/editor.c apps/imageview/imageview.c apps/taskbar/taskbar.c apps/common/app_registry.c apps/common/virtual_keyboard.c
 BACKEND_SRCS := src/platform/newos/framebuffer.c src/platform/newos/input.c src/platform/newos/syscall.c src/platform/newos/apps.c
 VOXEL_DEMO := $(BUILD_DIR)/voxel.elf
 TINYGL_DEMO := $(BUILD_DIR)/voxel-tinygl.elf

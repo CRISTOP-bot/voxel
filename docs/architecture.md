@@ -93,5 +93,6 @@ into the demonstration process; they are not independent binaries or sandboxed
 applications. The app registry and portable app tests live alongside the core.
 The pinned NEWOS ABI exposes mouse polling but no GUI keyboard input syscall, so
 the text-entry views include a mouse-operated virtual keyboard. The console
-module launches absolute executable paths; it does not implement a shell, pipes,
-or console output redirection.
+launches one absolute executable per command and collects output through the
+existing pipe and `SPAWN3` descriptor-redirection interface. It does not provide
+a shell parser or pipeline syntax.
