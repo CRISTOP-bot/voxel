@@ -56,6 +56,9 @@ struct voxel_app_host {
     struct voxel_theme_state *theme;
     void (*open_path)(void *userdata, const char *path);
     int (*open_image)(void *userdata, const char *path);
+    int (*open_text)(void *userdata, const char *path);
+    void (*request_open_image)(void *userdata, const char *path);
+    void (*request_open_text)(void *userdata, const char *path);
 };
 
 struct voxel_app_context {

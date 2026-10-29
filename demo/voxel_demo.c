@@ -122,6 +122,18 @@ static void raise_app(int id)
     if(index!=UINT32_MAX) (void)voxel_compositor_raise(&compositor,index);
 }
 
+int voxel_editor_load(struct voxel_app_context *app,const char *path);
+int voxel_imageview_open(struct voxel_app_context *app,const char *path);
+static int open_text_path(void *userdata,const char *path)
+{
+    (void)userdata;if(voxel_editor_load(&app_contexts[VOXEL_APP_EDITOR],path)==0){raise_app(VOXEL_APP_EDITOR);return 1;}return -1;
+}
+static int open_image_path(void *userdata,const char *path)
+{
+    (void)userdata;if(voxel_imageview_open(&app_contexts[VOXEL_APP_IMAGEVIEW],path)==0){raise_app(VOXEL_APP_IMAGEVIEW);return 1;}return -1;
+}
+static void request_text_path(void *userdata,const char *path){(void)open_text_path(userdata,path);}
+static void request_image_path(void *userdata,const char *path){(void)open_image_path(userdata,path);}
 static void set_visible(struct app_window *a,int visible)
 {
     uint32_t i=layer_for_surface(&a->surface);
@@ -175,7 +187,8 @@ static void pointer_click(int32_t x,int32_t y,uint32_t buttons)
     if(y>=(int32_t)VIEW_H-TASKBAR_H) {
         if(x<70) { menu_open=!menu_open; return; }
         if(x>=76) {
-            int slot=(x-76)/140;
+            uint8_t visible[APP_COUNT];int slot;for(int i=0;i<APP_COUNT;i++)visible[i]=(uint8_t)(apps[i].visible&&!apps[i].minimized);
+            slot=voxel_taskbar_hit(x,visible);
             if(slot>=0&&slot<APP_COUNT&&apps[slot].visible) {
                 if(active_app==slot&&!apps[slot].minimized) {
                     apps[slot].minimized=1; set_visible(&apps[slot],0); active_app=-1;
@@ -249,6 +262,10 @@ int main(int argc,char **argv)
     }
     voxel_newos_app_host_init(&app_host);
     app_host.theme=&theme;
+    app_host.open_text=open_text_path;
+    app_host.open_image=open_image_path;
+    app_host.request_open_text=request_text_path;
+    app_host.request_open_image=request_image_path;
     for(int i=0;i<APP_COUNT;++i) {
         const struct voxel_app_descriptor *d=voxel_app_get((enum voxel_app_id)i);
         uint32_t w=(i==VOXEL_APP_EXPLORER?380u:320u),h=(i==VOXEL_APP_EXPLORER?300u:240u);

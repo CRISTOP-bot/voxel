@@ -1,6 +1,7 @@
 #ifndef VOXEL_TASKBAR_H
 #define VOXEL_TASKBAR_H
 #include "voxel/app.h"
+int voxel_taskbar_hit(int32_t x, const uint8_t *visible);
 void voxel_taskbar_draw(struct voxel_surface *surface,
                         struct voxel_app_host *host,
                         const struct voxel_app_descriptor *const *apps,

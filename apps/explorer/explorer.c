@@ -21,8 +21,7 @@ int voxel_explorer_open_selected(struct voxel_app_context *a, int row)
         for(b=0;b<VOXEL_APP_PATH_MAX-1&&full[b];++b)s->path[b]=full[b];
         s->path[b]=0;refresh(a);return 1;
     }
-    if(a->host&&a->host->open_image){return a->host->open_image(a->host->userdata,full);}if(a->host&&a->host->open_path){a->host->open_path(a->host->userdata,full);return 1;}
-    return -1;
+    if(a->host&&a->host->open_image){int result=a->host->open_image(a->host->userdata,full);if(result==-1)return -1;if(result==-2&&a->host->request_open_image){a->host->request_open_image(a->host->userdata,full);return 1;}if(result!=-2)return result;}if(a->host&&a->host->open_text){a->host->request_open_text?a->host->request_open_text(a->host->userdata,full):(void)a->host->open_text(a->host->userdata,full);return 1;}if(a->host&&a->host->open_path){a->host->open_path(a->host->userdata,full);return 1;}
     return -1;
 }
 

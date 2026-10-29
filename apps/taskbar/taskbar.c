@@ -2,6 +2,11 @@
 #include "voxel/classic_ui.h"
 #include <stdint.h>
 
+int voxel_taskbar_hit(int32_t x,const uint8_t *visible)
+{
+    int slot;if(!visible||x<76)return -1;slot=(x-76)/142;if(slot<0||slot>=3||!visible[slot])return -1;return slot;
+}
+
 void voxel_taskbar_draw(struct voxel_surface *surface,
                         struct voxel_app_host *host,
                         const struct voxel_app_descriptor *const *apps,
@@ -13,12 +18,10 @@ void voxel_taskbar_draw(struct voxel_surface *surface,
     char clock[6]={'0','0',':','0','0',0};
     uint32_t i;
     if(!surface||!apps||!visible)return;
-    voxel_surface_fill_rect(surface,0,screen_height-30,screen_width,30,VOXEL_UI_FACE);
     voxel_ui_taskbar(surface,screen_width,screen_height,start_pressed);
-    for(i=0;i<VOXEL_APP_COUNT;i++) {
-        int32_t x=76+(int32_t)i*68;
-        if(visible[i]&&apps[i])
-            voxel_ui_button(surface,(struct voxel_ui_rect){x,screen_height-27,64,24},apps[i]->name,active_app==(int)i);
+    for(i=0;i<VOXEL_APP_COUNT&&i<3u;i++) {
+        int32_t x=76+(int32_t)i*142;
+        if(visible[i]&&apps[i])voxel_ui_button(surface,(struct voxel_ui_rect){x,screen_height-27,138,24},apps[i]->name,active_app==(int)i);
     }
     if(host&&host->get_time&&host->get_time(host->userdata,&t)==0) {
         clock[0]=(char)('0'+t.hour/10);clock[1]=(char)('0'+t.hour%10);

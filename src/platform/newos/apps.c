@@ -35,6 +35,8 @@ static int read_file(void*u,const char*path,void*buffer,uint32_t capacity,uint32
     n=syscall3(VOXEL_SYS_READ,fd,(long)(uintptr_t)buffer,capacity);(void)syscall1(VOXEL_SYS_CLOSE,fd);
     if(n<0)return -1;*bytes_read=(uint32_t)n;return 0;
 }
+static int open_image(void*u,const char*path){(void)u;(void)path;return -2;}
+
 static int write_file(void*u,const char*path,const void*buffer,uint32_t bytes)
 {
     long fd,n;(void)u;if(!path||(!buffer&&bytes))return -1;
@@ -70,5 +72,5 @@ static int spawn(void*u,const char*path)
 }
 void voxel_newos_app_host_init(struct voxel_app_host*host)
 {
-    if(!host)return;host->userdata=0;host->list_dir=list_dir;host->read_file=read_file;host->write_file=write_file;host->spawn=spawn;host->stat_path=stat_path;host->getcwd=0;host->get_time=get_time;host->theme=0;host->open_path=0;host->open_image=0;host->run_command=run_command;
+    if(!host)return;host->userdata=0;host->list_dir=list_dir;host->read_file=read_file;host->write_file=write_file;host->spawn=spawn;host->stat_path=stat_path;host->getcwd=0;host->get_time=get_time;host->theme=0;host->open_path=0;host->open_image=open_image;host->open_text=0;host->run_command=run_command;
 }
